@@ -1,0 +1,571 @@
+-- =================================================================
+-- ADMIN PANEL RPC FUNCTIONS
+-- =================================================================
+-- These functions are designed to be called by an administrator using
+-- a client with the service_role key, bypassing Row Level Security.
+-- Do not grant execute permissions on these functions to any other role.
+
+-- RPC functions for Admin Panel
+drop function if exists public.get_all_profiles_admin();
+create or replace function public.get_all_profiles_admin()
+returns table (
+  id uuid,
+  updated_at timestamp with time zone,
+  username text,
+  full_name text,
+  avatar_url text,
+  website text,
+  gender text,
+  birth_date date,
+  username_last_changed_at timestamp with time zone,
+  user_preferences jsonb,
+  token_balance bigint,
+  current_package_id integer,
+  package_expires_at timestamp with time zone,
+  free_generations_remaining smallint,
+  bonus_expires_at timestamptz,
+  storage_limit_bytes bigint,
+  is_suspended boolean,
+  available_models_count integer
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    p.id,
+    p.updated_at,
+    p.username,
+    p.full_name,
+    p.avatar_url,
+    p.website,
+    p.gender,
+    p.birth_date,
+    p.username_last_changed_at,
+    p.user_preferences,
+    p.token_balance,
+    p.current_package_id,
+    p.package_expires_at,
+    p.free_generations_remaining,
+    p.bonus_expires_at,
+    p.storage_limit_bytes,
+    (u.banned_until is not null and u.banned_until > now()) as is_suspended,
+    coalesce(
+      case
+        when sp.id is not null and cardinality(sp.enabled_models) > 0 then
+          cardinality(sp.enabled_models)
+        when sp.id is not null and (sp.enabled_models is null or cardinality(sp.enabled_models) = 0) then
+          (select count(*)::integer from public.models where is_active = true)
+        else
+          (select count(*)::integer from public.models where is_active = true and is_free_tier = true)
+      end,
+      (select count(*)::integer from public.models where is_active = true and is_free_tier = true)
+    )::integer as available_models_count
+  from
+    public.profiles p
+  join auth.users u on p.id = u.id
+  left join
+    public.subscription_packages sp on p.current_package_id = sp.id and p.package_expires_at > now();
+$$;
+
+drop function if exists public.get_profile_for_user_admin(uuid);
+create or replace function public.get_profile_for_user_admin(p_user_id uuid)
+returns table (
+  id uuid,
+  updated_at timestamp with time zone,
+  username text,
+  full_name text,
+  avatar_url text,
+  website text,
+  gender text,
+  birth_date date,
+  username_last_changed_at timestamp with time zone,
+  user_preferences jsonb,
+  token_balance bigint,
+  current_package_id integer,
+  package_expires_at timestamp with time zone,
+  free_generations_remaining smallint,
+  bonus_expires_at timestamptz,
+  storage_limit_bytes bigint,
+  is_suspended boolean,
+  available_models_count integer
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    p.id,
+    p.updated_at,
+    p.username,
+    p.full_name,
+    p.avatar_url,
+    p.website,
+    p.gender,
+    p.birth_date,
+    p.username_last_changed_at,
+    p.user_preferences,
+    p.token_balance,
+    p.current_package_id,
+    p.package_expires_at,
+    p.free_generations_remaining,
+    p.bonus_expires_at,
+    p.storage_limit_bytes,
+    (u.banned_until is not null and u.banned_until > now()) as is_suspended,
+    (
+      select
+        case
+          when p.current_package_id is not null and p.package_expires_at > now() then
+            (
+              select
+                case
+                  when sp.enabled_models is null or cardinality(sp.enabled_models) = 0 then
+                    (select count(*)::integer from public.models where is_active = true)
+                  else
+                    cardinality(sp.enabled_models)
+                end
+              from public.subscription_packages sp
+              where sp.id = p.current_package_id
+            )
+          else
+            (select count(*)::integer from public.models where is_active = true and is_free_tier = true)
+        end
+    )::integer as available_models_count
+  from
+    public.profiles p
+    join auth.users u on p.id = u.id
+  where
+    p.id = p_user_id;
+$$;
+
+create or replace function public.get_generations_for_user_admin(p_user_id uuid)
+returns setof generations
+language sql
+security definer
+set search_path = public
+as $$
+  select * from public.generations where user_id = p_user_id;
+$$;
+
+-- RPC for admin to get token usage for a user with date filters
+drop function if exists public.get_token_usage_for_user_admin(uuid);
+create or replace function public.get_token_usage_for_user_admin(
+    p_user_id uuid,
+    p_start_date timestamp with time zone default '1970-01-01T00:00:00Z',
+    p_end_date timestamp with time zone default now()
+)
+returns setof token_usage
+language sql
+security definer
+set search_path = public
+as $$
+  select * from public.token_usage
+  where user_id = p_user_id
+  and created_at >= p_start_date and created_at <= p_end_date
+  order by created_at desc;
+$$;
+
+-- =================================================================
+-- APP CONFIG MANAGEMENT RPCs
+-- =================================================================
+
+-- Function to get a config value (admin only)
+drop function if exists public.get_app_config_admin(text);
+create or replace function get_app_config_admin(p_key text)
+returns jsonb
+language plpgsql security definer as $$
+begin
+  return (select value from public.app_config where key = p_key);
+end;
+$$;
+
+-- Function to set a config value (admin only)
+drop function if exists public.set_app_config_admin(text, jsonb);
+create or replace function set_app_config_admin(p_key text, p_value jsonb)
+returns void as $$
+begin
+  insert into public.app_config (key, value)
+  values (p_key, p_value)
+  on conflict (key) do update
+  set value = p_value, updated_at = timezone('utc'::text, now());
+end;
+$$ language plpgsql security definer;
+
+
+-- New comprehensive dashboard analytics function
+drop function if exists public.get_dashboard_analytics_admin(timestamp with time zone, timestamp with time zone);
+drop function if exists public.get_token_analytics_admin();
+create or replace function get_dashboard_analytics_admin(
+    p_start_date timestamp with time zone default '1970-01-01T00:00:00Z',
+    p_end_date timestamp with time zone default now()
+)
+returns json as $$
+declare
+  v_total_usage json;
+  v_usage_by_feature json;
+  v_usage_by_model json;
+  v_total_users bigint;
+  v_active_models_count int;
+  v_total_models_count int;
+  v_total_packages_count int;
+  v_total_generations_count bigint;
+  v_new_users_over_time json;
+  v_package_distribution json;
+begin
+  -- Token Analytics
+  select json_build_object(
+    'total_input', coalesce(sum(input_tokens), 0),
+    'total_output', coalesce(sum(output_tokens), 0),
+    'total_all', coalesce(sum(total_tokens), 0)
+  ) into v_total_usage
+  from public.token_usage
+  where created_at >= p_start_date and created_at <= p_end_date;
+
+  select json_agg(t) into v_usage_by_feature from (
+    select feature, sum(total_tokens) as total
+    from public.token_usage
+    where feature is not null and created_at >= p_start_date and created_at <= p_end_date
+    group by feature order by total desc limit 10
+  ) t;
+  
+  select json_agg(t) into v_usage_by_model from (
+    select model_used as model, sum(total_tokens) as total
+    from public.token_usage
+    where model_used is not null and created_at >= p_start_date and created_at <= p_end_date
+    group by model_used order by total desc limit 10
+  ) t;
+
+  -- General Stats
+  select count(*) into v_total_users from public.profiles;
+  select count(*) into v_active_models_count from public.models where is_active = true;
+  select count(*) into v_total_models_count from public.models;
+  select count(*) into v_total_packages_count from public.subscription_packages;
+  
+  -- Time-based stats
+  select count(*) into v_total_generations_count from public.generations where created_at >= p_start_date and created_at <= p_end_date;
+
+  -- New Users Over Time
+  select json_agg(t) into v_new_users_over_time from (
+    select date_trunc('day', created_at)::date as date, count(*) as count
+    from auth.users
+    where created_at >= p_start_date and created_at <= p_end_date
+    group by date_trunc('day', created_at)
+    order by date
+  ) t;
+  
+  -- Package Distribution
+  select json_agg(t) into v_package_distribution from (
+    select
+      coalesce(sp.name, 'No Package') as name,
+      count(p.id) as user_count
+    from public.profiles p
+    left join public.subscription_packages sp
+      on p.current_package_id = sp.id and p.package_expires_at > now()
+    group by coalesce(sp.name, 'No Package')
+    order by user_count desc
+  ) t;
+  
+  -- Combine all results
+  return json_build_object(
+    'tokenAnalytics', json_build_object(
+        'totalUsage', v_total_usage,
+        'byFeature', v_usage_by_feature,
+        'byModel', v_usage_by_model
+    ),
+    'generalStats', json_build_object(
+        'totalUsers', v_total_users,
+        'activeModels', v_active_models_count,
+        'totalModels', v_total_models_count,
+        'totalPackages', v_total_packages_count,
+        'totalGenerations', v_total_generations_count
+    ),
+    'newUsersOverTime', v_new_users_over_time,
+    'packageDistribution', v_package_distribution
+  );
+end;
+$$ language plpgsql security definer;
+
+-- RPC for admin to get ALL models
+create or replace function get_all_models_admin()
+returns setof models
+language sql
+security definer
+set search_path = public
+as $$
+  select * from public.models order by category, name;
+$$;
+
+
+-- RPC for admin to update a model's status
+create or replace function update_model_status_admin(p_model_id text, p_is_active boolean)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.models
+  set is_active = p_is_active
+  where id = p_model_id;
+end;
+$$;
+
+-- RPC functions for admin to manage packages
+create or replace function get_all_packages_admin()
+returns setof subscription_packages
+language sql security definer as $$
+    select * from public.subscription_packages order by price;
+$$;
+
+create or replace function create_package_admin(
+    p_name text, p_price numeric, p_tokens_granted bigint, p_storage_mb integer, p_description text, p_enabled_models text[]
+)
+returns subscription_packages
+language plpgsql security definer as $$
+declare
+    new_package subscription_packages;
+begin
+    insert into public.subscription_packages (name, price, tokens_granted, storage_mb, description, enabled_models)
+    values (p_name, p_price, p_tokens_granted, p_storage_mb, p_description, p_enabled_models)
+    returning * into new_package;
+    return new_package;
+end;
+$$;
+
+create or replace function update_package_admin(
+    p_id integer, p_name text, p_price numeric, p_tokens_granted bigint, p_storage_mb integer, p_description text, p_enabled_models text[]
+)
+returns void
+language plpgsql security definer as $$
+begin
+    update public.subscription_packages
+    set
+        name = p_name,
+        price = p_price,
+        tokens_granted = p_tokens_granted,
+        storage_mb = p_storage_mb,
+        description = p_description,
+        enabled_models = p_enabled_models,
+        updated_at = now()
+    where id = p_id;
+end;
+$$;
+
+create or replace function delete_package_admin(p_id integer)
+returns void
+language plpgsql security definer as $$
+declare
+  rows_affected integer;
+begin
+    -- The foreign key on profiles.current_package_id is set to ON DELETE SET NULL,
+    -- so we only need to delete the package itself. The database will handle unassigning it.
+    delete from public.subscription_packages where id = p_id;
+
+    get diagnostics rows_affected = row_count;
+
+    -- This check ensures that if the ID doesn't exist, an error is thrown,
+    -- preventing a "silent failure" where the UI thinks the delete worked.
+    if rows_affected = 0 then
+      raise exception 'Package with ID % could not be found or deleted.', p_id;
+    end if;
+end;
+$$;
+
+-- RPC for admin to toggle a model's inclusion in a package
+create or replace function toggle_model_in_package_admin(p_package_id integer, p_model_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    current_models text[];
+    all_active_model_ids text[];
+begin
+    -- Get the current list of enabled models for the package
+    select enabled_models into current_models
+    from public.subscription_packages
+    where id = p_package_id;
+
+    -- If enabled_models is NULL, it means the package includes all models.
+    -- To switch to manual management, we must first populate the array with all active models.
+    if current_models is null then
+        select array_agg(m.id) into all_active_model_ids
+        from public.models m where m.is_active = true;
+        current_models := all_active_model_ids;
+    end if;
+
+    -- Check if the model is currently in the list
+    if p_model_id = any(coalesce(current_models, '{}')) then
+        -- If it is, remove it
+        update public.subscription_packages
+        set enabled_models = array_remove(current_models, p_model_id)
+        where id = p_package_id;
+    else
+        -- If it's not, add it
+        update public.subscription_packages
+        set enabled_models = array_append(current_models, p_model_id)
+        where id = p_package_id;
+    end if;
+end;
+$$;
+
+
+-- =================================================================
+-- USER MANAGEMENT RPCs
+-- =================================================================
+
+create or replace function assign_package_to_user_admin(p_user_id uuid, p_package_id integer)
+returns void
+language plpgsql security definer as $$
+declare
+    package_tokens bigint;
+    package_storage_mb integer;
+begin
+    select tokens_granted, storage_mb into package_tokens, package_storage_mb from public.subscription_packages where id = p_package_id;
+    if not found then
+        raise exception 'Package not found';
+    end if;
+
+    -- Reset token balance to new package tokens (no spillover from old credits)
+    update public.profiles
+    set
+        token_balance = package_tokens,
+        current_package_id = p_package_id,
+        package_expires_at = now() + interval '30 days',
+        free_generations_remaining = 0,
+        bonus_expires_at = null,
+        storage_limit_bytes = package_storage_mb * 1024 * 1024
+    where id = p_user_id;
+end;
+$$;
+
+create or replace function revoke_package_from_user_admin(p_user_id uuid)
+returns void
+language plpgsql security definer as $$
+begin
+    update public.profiles
+    set
+        current_package_id = null,
+        package_expires_at = null
+    where id = p_user_id;
+end;
+$$;
+
+-- New RPC function for adding tokens to a user by an admin
+drop function if exists public.add_tokens_for_user_admin(uuid, bigint);
+
+create or replace function add_tokens_for_user_admin(p_user_id uuid, p_amount bigint)
+returns void
+language plpgsql security definer
+as $$
+begin
+    -- Log the token addition in the usage table for auditing
+    insert into public.token_usage(user_id, feature, total_tokens)
+    values (p_user_id, 'Admin Credit', p_amount);
+    
+    update public.profiles
+    set token_balance = token_balance + p_amount
+    where id = p_user_id;
+end;
+$$;
+
+create or replace function suspend_user_admin(p_user_id uuid)
+returns void
+language plpgsql security definer
+as $$
+begin
+    update auth.users
+    set banned_until = '9999-12-31T23:59:59Z'
+    where id = p_user_id;
+end;
+$$;
+
+create or replace function unsuspend_user_admin(p_user_id uuid)
+returns void
+language plpgsql security definer
+as $$
+begin
+    update auth.users
+    set banned_until = NULL
+    where id = p_user_id;
+end;
+$$;
+
+create or replace function delete_user_admin(p_user_id uuid)
+returns void
+language plpgsql security definer
+as $$
+begin
+    -- This will cascade and delete the user's profile, generations, etc.
+    delete from auth.users where id = p_user_id;
+end;
+$$;
+
+-- New function to introspect the database schema for the admin panel
+drop function if exists public.get_database_schema_details_admin();
+create or replace function public.get_database_schema_details_admin()
+returns jsonb
+language plpgsql
+security definer
+as $$
+declare
+  result jsonb;
+begin
+  select jsonb_build_object(
+    'tables', (
+      select jsonb_agg(
+        jsonb_build_object(
+          'schema', t.table_schema,
+          'table_name', t.table_name,
+          'columns', (
+            select jsonb_agg(
+              jsonb_build_object(
+                'column_name', c.column_name,
+                'data_type', c.data_type,
+                'is_nullable', c.is_nullable,
+                'column_default', c.column_default,
+                'description', pgd.description
+              ) order by c.ordinal_position
+            )
+            from information_schema.columns as c
+            left join pg_catalog.pg_stat_user_tables as psut on psut.schemaname = c.table_schema and psut.relname = c.table_name
+            left join pg_catalog.pg_description as pgd on pgd.objoid = psut.relid and pgd.objsubid = c.ordinal_position
+            where c.table_schema = t.table_schema and c.table_name = t.table_name
+          ),
+          'policies', (
+            select jsonb_agg(
+              jsonb_build_object(
+                'policy_name', p.policyname,
+                'command', p.cmd,
+                'roles', p.roles,
+                'definition', p.qual,
+                'with_check', p.with_check
+              )
+            )
+            from pg_policies as p
+            where p.schemaname = t.table_schema and p.tablename = t.table_name
+          )
+        )
+      )
+      from information_schema.tables as t
+      where t.table_schema in ('public', 'storage')
+      and t.table_type = 'BASE TABLE'
+    ),
+    'functions', (
+      select jsonb_agg(
+        jsonb_build_object(
+          'function_name', p.proname,
+          'return_type', pg_catalog.format_type(p.prorettype, null),
+          'argument_types', pg_catalog.pg_get_function_identity_arguments(p.oid)
+        ) order by p.proname
+      )
+      from pg_catalog.pg_proc p
+      join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and pg_catalog.pg_function_is_visible(p.oid)
+      and p.prokind = 'f' -- only include normal functions
+    )
+  ) into result;
+  return result;
+end;
+$$;

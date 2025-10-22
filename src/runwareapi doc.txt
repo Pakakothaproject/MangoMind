@@ -1,0 +1,474 @@
+To call all available models for image generation using the Runware API, you need to understand how to discover and iterate through available models and then invoke them programmatically. Since Runware’s API doesn’t provide a single endpoint to list all models directly via WebSocket (based on the official documentation), you typically use the [Model Explorer](https://my.runware.ai/models/all) or an API endpoint to retrieve model AIR (Artificial Intelligence Resource) IDs. Below is a comprehensive guide on how to achieve this, tailored for AI builders.
+
+---
+
+## Guide to Calling All Available Models in Runware for Image Generation
+
+### 1. Understanding Runware Models
+Runware hosts a variety of models for image generation, including architectures like FLUX.1, SDXL, SD 1.5, and community models from platforms like CivitAI. Each model is identified by a unique AIR ID (e.g., `runware:101@1` for FLUX.1 Dev). Models support tasks like text-to-image, image-to-image, inpainting, and more, but their availability depends on your account permissions and the platform’s offerings.
+
+To call all models:
+- You need to retrieve a list of available AIR IDs.
+- Iterate through them, sending image inference tasks for each model.
+- Handle responses and potential errors (e.g., model access restrictions).
+
+### 2. Retrieving Available Models
+Runware doesn’t explicitly provide a WebSocket task to list all models in the WebSocket API. Instead, you can:
+- **Use the Model Explorer**: Visit [https://my.runware.ai/models/all](https://my.runware.ai/models/all) to manually browse or scrape AIR IDs.
+- **Use the HTTP API**: Runware’s dashboard or HTTP endpoints (if available) may list models. Check [https://runware.ai/docs](https://runware.ai/docs) for any model-listing endpoints (not detailed in WebSocket docs but may exist in REST API).
+- **Hardcode Known Models**: If you know common models (e.g., `runware:101@1`, `civitai:133005@782002`), you can test them directly.
+- **Contact Support**: For enterprise or custom access, Runware support can provide a full model list.
+
+For this guide, we’ll assume you’ve obtained a list of AIR IDs (e.g., via Model Explorer or a hypothetical `/models` endpoint). If no endpoint exists, you’d need to manually collect AIR IDs from the Model Explorer or documentation.
+
+**Example Model List (Hypothetical)**:
+```json
+[
+  "runware:100@1",  // SDXL
+  "runware:101@1",  // FLUX.1 Dev
+  "runware:102@1",  // FLUX.1 Schnell
+  "civitai:133005@782002"  // Juggernaut XL
+]
+```
+
+### 3. Setting Up the Runware API Connection
+Runware uses a WebSocket connection at `wss://ws-api.runware.ai/v1`. You must authenticate first, then send `imageInference` tasks for each model. Use an SDK (Python/JavaScript) or manual WebSocket for flexibility.
+
+#### Prerequisites
+- **API Key**: Obtain from [https://my.runware.ai](https://my.runware.ai).
+- **WebSocket Library**: Python (`websocket-client`), JavaScript (native `WebSocket`), or SDKs.
+- **Model List**: AIR IDs collected manually or via API.
+
+### 4. Programmatically Calling All Models
+Below are examples in Python and JavaScript to iterate through a list of models and generate images (e.g., text-to-image) for each.
+
+#### Python Example
+This script assumes you have a list of AIR IDs and uses `websocket-client` to send tasks.
+
+```python
+import json
+import uuid
+import time
+from websocket import create_connection
+
+API_KEY = "your_api_key_here"
+WS_URL = "wss://ws-api.runware.ai/v1"
+MODELS = [
+    "runware:100@1",
+    "runware:101@1",
+    "runware:102@1",
+    "civitai:133005@782002"
+]
+
+# Connect to WebSocket
+ws = create_connection(WS_URL)
+
+# Authenticate
+auth_request = [{"taskType": "authentication", "apiKey": API_KEY}]
+ws.send(json.dumps(auth_request))
+response = json.loads(ws.recv())
+if "errors" in response:
+    print("Authentication failed:", response["errors"])
+    ws.close()
+    exit(1)
+session_uuid = response["data"][0]["connectionSessionUUID"]
+print("Authenticated with session:", session_uuid)
+
+# Iterate through models
+results = {}
+for model in MODELS:
+    task_uuid = str(uuid.uuid4())
+    image_request = [
+        {
+            "taskType": "imageInference",
+            "taskUUID": task_uuid,
+            "model": model,
+            "positivePrompt": "A serene mountain landscape, cinematic",
+            "width": 1024,
+            "height": 1024,
+            "steps": 30,
+            "numberResults": 1,
+            "outputType": "URL"
+        }
+    ]
+    print(f"Sending request for model: {model}")
+    ws.send(json.dumps(image_request))
+
+    # Handle response
+    try:
+        response = json.loads(ws.recv())
+        if "data" in response:
+            results[model] = response["data"][0]["imageURL"]
+            print(f"Model {model} generated: {results[model]}")
+        else:
+            results[model] = f"Error: {response['errors']}"
+            print(f"Model {model} failed: {response['errors']}")
+    except Exception as e:
+        results[model] = f"Exception: {str(e)}"
+        print(f"Model {model} failed: {str(e)}")
+
+    # Small delay to avoid overwhelming the server
+    time.sleep(1)
+
+# Keep connection alive with ping
+ws.send(json.dumps([{"taskType": "ping", "ping": True}]))
+print("Pong:", json.loads(ws.recv()))
+
+# Close connection
+ws.close()
+
+# Print results
+print("\nResults:")
+for model, result in results.items():
+    print(f"{model}: {result}")
+```
+
+#### JavaScript Example
+This uses the native `WebSocket` API in a Node.js or browser environment.
+
+```javascript
+const API_KEY = 'your_api_key_here';
+const WS_URL = 'wss://ws-api.runware.ai/v1';
+const MODELS = [
+    'runware:100@1',
+    'runware:101@1',
+    'runware:102@1',
+    'civitai:133005@782002'
+];
+
+const ws = new WebSocket(WS_URL);
+const results = {};
+
+ws.onopen = () => {
+    // Authenticate
+    const authRequest = [{ taskType: 'authentication', apiKey: API_KEY }];
+    ws.send(JSON.stringify(authRequest));
+};
+
+ws.onmessage = (event) => {
+    const response = JSON.parse(event.data);
+    if (response.errors) {
+        console.error('Error:', response.errors);
+        ws.close();
+        return;
+    }
+
+    if (response.data[0].taskType === 'authentication') {
+        console.log('Authenticated:', response.data[0].connectionSessionUUID);
+        
+        // Iterate through models
+        MODELS.forEach((model, index) => {
+            const taskUUID = crypto.randomUUID();
+            const imageRequest = [{
+                taskType: 'imageInference',
+                taskUUID: taskUUID,
+                model: model,
+                positivePrompt: 'A serene mountain landscape, cinematic',
+                width: 1024,
+                height: 1024,
+                steps: 30,
+                numberResults: 1,
+                outputType: 'URL'
+            }];
+            console.log(`Sending request for model: ${model}`);
+            ws.send(JSON.stringify(imageRequest));
+
+            // Delay to avoid rate limits
+            setTimeout(() => {}, index * 1000);
+        });
+    } else if (response.data[0].taskType === 'imageInference') {
+        const model = response.data[0].model;
+        results[model] = response.data[0].imageURL || `Error: ${response.errors}`;
+        console.log(`Model ${model}: ${results[model]}`);
+
+        // Check if all models processed
+        if (Object.keys(results).length === MODELS.length) {
+            console.log('\nResults:');
+            for (const [model, result] of Object.entries(results)) {
+                console.log(`${model}: ${result}`);
+            }
+            // Ping to keep alive
+            ws.send(JSON.stringify([{ taskType: 'ping', ping: true }]));
+        }
+    } else if (response.data[0].taskType === 'ping') {
+        console.log('Pong received');
+        ws.close();
+    }
+};
+
+ws.onerror = (error) => console.error('WebSocket error:', error);
+ws.onclose = () => console.log('Connection closed');
+```
+
+### 5. Key Considerations
+- **Model Availability**: Some models (e.g., community models like `civitai:*`) may require specific permissions or subscriptions. Check errors for `modelNotFound` or `accessDenied`.
+- **Rate Limits**: Free tiers have usage limits. Include `includeCost: true` in requests to monitor costs.
+- **Error Handling**:
+  - Invalid models return errors like `{"code": "invalidParameter", "parameter": "model"}`.
+  - Handle WebSocket disconnections by resuming with `connectionSessionUUID`.
+- **Parameters**: Ensure `width`/`height` are divisible by 64 (e.g., 1024x1024). Adjust `steps` (20-50) and `CFGScale` (5-10) per model for optimal results.
+- **Performance**: Batch tasks in arrays if supported, but test one model at a time to avoid overwhelming the server.
+- **Dynamic Model List**: If Runware provides a `/models` HTTP endpoint (check [https://runware.ai/docs/api-reference](https://runware.ai/docs/api-reference)), fetch AIR IDs programmatically. Example (hypothetical):
+  ```python
+  import requests
+  models = requests.get("https://api.runware.ai/v1/models", headers={"Authorization": f"Bearer {API_KEY}"}).json()
+  MODELS = [model["airID"] for model in models["data"]]
+  ```
+
+### 6. Best Practices
+- **Test Sequentially**: Run models one at a time to manage rate limits and debug errors.
+- **Standardize Prompts**: Use the same prompt across models for fair comparison.
+- **Log Results**: Save `imageURL` and `seed` for reproducibility.
+- **Optimize Parameters**: FLUX models ignore `negativePrompt`; SDXL may need higher `steps`.
+- **Safety**: Add `safety: {"checkContent": true}` for user-facing apps.
+- **Fallbacks**: If a model fails, skip to the next and log the error.
+
+### 7. Limitations
+- No direct WebSocket task to list models (as of October 2025 docs).
+- Max 20 results per task (`numberResults`).
+- Some models may be restricted to premium accounts.
+- WebSocket connections close after 120 seconds of inactivity; use `ping` tasks.
+
+### 8. Additional Resources
+- **Model Explorer**: [https://my.runware.ai/models/all](https://my.runware.ai/models/all) for browsing models.
+- **API Docs**: [https://runware.ai/docs](https://runware.ai/docs) for task parameters and SDK details.
+- **Support**: Contact Runware via their dashboard for model access or API questions.
+- **SDKs**: Use Python/JavaScript SDKs for easier connection management (search “runware-sdk” on PyPI/npm).
+
+This approach ensures you can systematically test all available models for image generation, handling errors and optimizing for Runware’s infrastructure. If you need a specific endpoint to list models or have a partial list, let me know, and I can tailor the code further!
+
+
+# Updated Official Major Runware Models AIR IDs
+
+Based on additional data from Runware's documentation, model explorer, and related sources, I've expanded the list of official major models (those with AIR IDs starting with "runware:"). This includes more FLUX variants (e.g., Dev and Schnell) and ControlNet models, which are specialized for guided generation. ControlNet models are primarily for Image-to-Image (I2I) tasks, as they use input images (e.g., edges, depth) to control output structure.
+
+Regarding "nano banana": This appears to refer to Google's Nano Banana model, an AI image generator and editor from the Gemini team, focused on fast text-to-image and editing with character consistency. However, it is not an official Runware model and does not have a "runware:" prefixed AIR ID. Runware primarily hosts its own and CivitAI-integrated models. If Nano Banana is available via Runware (e.g., as a community model), it would likely use a "civitai:" AIR ID, but no such integration was found in current sources. Similar fast-editing models on Runware include Qwen-Image-Lightning variants and FLUX.1 Schnell. For other available models, I've included all scraped official ones.
+
+Models that support both T2I and I2I (via parameters like `seedImage`) are noted in both categories.
+
+## Text-to-Image Models
+These models primarily generate new images from text prompts but often support basic I2I via seed images.
+
+- **runware:97@1** (HiDream-I1 Full): Highest quality HiDream model with sharp details, accurate prompts, and full LoRA compatibility. Fully uncensored.
+- **runware:97@2** (HiDream-I1 Dev): Balances quality and speed, supports LoRAs for clean, detailed images. Ideal for testing and refining. (Supports both T2I and I2I.)
+- **runware:97@3** (HiDream-I1 Fast): Optimized for speed, great for drafts and bulk jobs with strong prompt adherence. (Supports both T2I and I2I.)
+- **runware:101@1** (FLUX.1 Dev): High-quality open-weight model for photorealistic or detailed generations (e.g., portraits, landscapes). Supports 28 steps for better fidelity. (Supports both T2I and I2I.)
+- **runware:102@1** (FLUX.1 Schnell): Fast variant optimized for quick inference (4 steps), ideal for real-time or low-latency applications. (Supports both T2I and I2I.)
+- **runware:106@1** (FLUX.1 Kontext [dev]): Supports reference images for identity/style transfer and iterative editing. (Supports both T2I and I2I.)
+- **runware:107@1** (FLUX.1 Krea [dev]): Photorealistic model co-developed with Krea AI for realistic results without AI artifacts. (Supports both T2I and I2I.)
+- **runware:108@1** (Qwen-Image): Vision-language model for generating images with strong detail and prompt following.
+- **runware:108@5** (Qwen-Image-Lightning 4 steps): LoRA distillation for fast 4-step inference with minimal quality loss.
+- **runware:108@6** (Qwen-Image-Lightning 8 steps V1.0): 8-step distillation balancing speed and fidelity.
+- **runware:108@7** (Qwen-Image-Lightning 8 steps V1.1): Improved 8-step version with refined quality.
+
+## Image-to-Image Models
+These models focus on transforming, editing, inpainting, or outpainting based on input images, masks, or references. ControlNet models are included here as they enhance I2I workflows.
+
+- **runware:97@2** (HiDream-I1 Dev): Supports I2I transformations with LoRA integration. (Also supports T2I.)
+- **runware:97@3** (HiDream-I1 Fast): Fast I2I for quick edits. (Also supports T2I.)
+- **runware:101@1** (FLUX.1 Dev): Supports I2I via seedImage and strength for transformations. (Also supports T2I.)
+- **runware:102@1** (FLUX.1 Schnell): Used for fast editing workflows, including inpainting/fill. (Also supports T2I.)
+- **runware:106@1** (FLUX.1 Kontext [dev]): Specialized for instruction-based iterative editing with local/full-scene changes. (Also supports T2I.)
+- **runware:107@1** (FLUX.1 Krea [dev]): Supports photorealistic image transformations and edits. (Also supports T2I.)
+- **runware:108@20** (Qwen-Image-Edit): Intelligent editing applying targeted changes while preserving composition.
+- **runware:108@21** (Qwen-Image-Edit Lightning 8 steps): Fast version for precise, localized edits.
+- **runware:108@22** (Qwen-Image-Edit-Plus): Enhanced multi-image editing with ControlNet for fine-grained control.
+- **runware:20@1** (SDXL ControlNet Canny): Uses edge detection maps to control structure in SDXL-based generations.
+- **runware:25@1** (FLUX.1 [dev] ControlNet Canny): Edge detection for structural control in FLUX generations.
+- **runware:26@1** (FLUX.1 [dev] ControlNet Tile): Tile-based upscaling for consistent image enhancement.
+- **runware:27@1** (FLUX.1 [dev] ControlNet Depth): Depth maps for guiding spatial relationships.
+- **runware:28@1** (FLUX.1 [dev] ControlNet Blur): Generates sharp images from blurred references.
+- **runware:29@1** (FLUX.1 [dev] ControlNet Pose): Pose guidance for structured generations.
+- **runware:30@1** (FLUX.1 [dev] ControlNet Grayscale): Colorizes grayscale images while maintaining structure.
+- **runware:31@1** (FLUX.1 [dev] ControlNet Low Quality): Upscales low-quality images to higher quality.
+Guide to Using Gemini 2.5 Flash Image Model via Runware API
+This document provides a comprehensive guide for AI builders on integrating the Gemini 2.5 Flash Image model (also known as "Nano Banana") through the Runware API. Gemini 2.5 Flash Image is Google's state-of-the-art multimodal image generation model, optimized for rapid, interactive workflows. It excels in generating images from text, editing images with prompts, and fusing multiple images into cohesive outputs.
+Runware hosts this model with the AIR ID google:4@1, allowing seamless integration into applications for tasks like creative design, content editing, and visual storytelling. All outputs include an invisible SynthID watermark for traceability.
+This guide covers:
+
+Setup and authentication
+Text-to-Image generation
+Image-to-Image editing
+Multi-Image + Prompt generation (up to 8 images)
+Code examples in Python and JavaScript
+Limitations and best practices
+
+Information is based on Runware's official documentation as of October 17, 2025.
+1. Prerequisites and Setup
+Account and API Key
+
+Sign up for a Runware account at https://my.runware.ai/signup.
+Log in to the dashboard at https://my.runware.ai.
+Generate an API key in the "API Keys" section. Store it securely.
+
+Runware offers a free tier; check pricing for production use, where Gemini 2.5 Flash Image costs approximately $0.039 per 1024x1024 image.
+WebSocket Connection
+Runware uses WebSockets for API calls (wss://ws-api.runware.ai/v1). Authenticate first, then send tasks.
+Use official SDKs (Python: pip install runware-sdk; JavaScript: npm install runware-sdk) for easier handling, or implement manually.
+Manual Authentication Example (Python)
+pythonimport json
+import uuid
+from websocket import create_connection
+
+API_KEY = "your_api_key"
+WS_URL = "wss://ws-api.runware.ai/v1"
+
+ws = create_connection(WS_URL)
+auth = [{"taskType": "authentication", "apiKey": API_KEY}]
+ws.send(json.dumps(auth))
+response = json.loads(ws.recv())
+if "errors" in response:
+    raise ValueError("Authentication failed")
+session_uuid = response["data"][0]["connectionSessionUUID"]
+print("Authenticated")
+Similar for JavaScript using WebSocket.
+Uploading Images
+For image-to-image or multi-image tasks, upload images first to get UUIDs.
+Upload Task Example:
+json[
+  {
+    "taskType": "imageUpload",
+    "taskUUID": "unique-uuid",
+    "imageDataURI": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+  }
+]
+Response provides imageUUID for use in referenceImages.
+Requirements: Images 300-2048 pixels, ≤20MB, PNG/JPG/WEBP.
+2. Common Parameters for Gemini 2.5 Flash Image
+All tasks use taskType: "imageInference" and model: "google:4@1".
+
+Required:
+
+taskUUID: Unique string (e.g., UUID).
+positivePrompt: String (2-3000 chars) describing the output.
+
+
+Optional:
+
+referenceImages: Array of 1-8 image UUIDs (for image-to-image or multi-image).
+width/height: For text-to-image only (see supported dimensions below).
+negativePrompt: String (2-3000 chars) to avoid elements.
+outputType: "URL" (default), "base64Data", or "dataURI".
+numberResults: 1-4 (default: 1) for multiple variations.
+providerSettings: Object for Google-specific tweaks (e.g., {"google": {"enhancePrompt": true}} to auto-improve prompts).
+
+
+
+Supported Dimensions (Text-to-Image Only):
+
+1024×1024 (1:1)
+1248×832 (3:2)
+832×1248 (2:3)
+1184×864 (4:3)
+864×1184 (3:4)
+1152×896 (5:4)
+896×1152 (4:5)
+1344×768 (16:9)
+768×1344 (9:16)
+1536×672 (21:9)
+
+For image-to-image/multi-image, dimensions match the reference image's aspect ratio; width/height are ignored.
+3. Text-to-Image Generation
+Generate images solely from a text prompt.
+Example Request (JSON Array):
+json[
+  {
+    "taskType": "imageInference",
+    "taskUUID": "f47ac10b-58cc-4372-a567-0e02b2c3d484",
+    "model": "google:4@1",
+    "positivePrompt": "A futuristic cityscape at dusk with flying cars and neon lights, high detail, cinematic",
+    "negativePrompt": "blurry, low quality",
+    "width": 1344,
+    "height": 768,
+    "numberResults": 2,
+    "providerSettings": {
+      "google": {
+        "enhancePrompt": true
+      }
+    }
+  }
+]
+Response Example:
+json{
+  "data": [
+    {
+      "taskType": "imageInference",
+      "taskUUID": "f47ac10b-58cc-4372-a567-0e02b2c3d484",
+      "imageURL": "https://im.runware.ai/.../image.jpg"
+    }
+  ]
+}
+Python Code Example:
+After connection:
+pythontask_uuid = str(uuid.uuid4())
+request = [
+    {
+        "taskType": "imageInference",
+        "taskUUID": task_uuid,
+        "model": "google:4@1",
+        "positivePrompt": "A serene forest path in autumn",
+        "width": 1024,
+        "height": 1024
+    }
+]
+ws.send(json.dumps(request))
+response = json.loads(ws.recv())
+print(response["data"][0]["imageURL"])
+4. Image-to-Image Editing
+Edit a single input image using a prompt (e.g., restyle, remove/add elements).
+Use referenceImages with one UUID.
+Example Request:
+json[
+  {
+    "taskType": "imageInference",
+    "taskUUID": "6ba7b823-9dad-11d1-80b4-00c04fd430c8",
+    "model": "google:4@1",
+    "referenceImages": ["c64351d5-4c59-42f7-95e1-eace013eddab"],
+    "positivePrompt": "Change the sky to a starry night and add glowing fireflies",
+    "negativePrompt": "distorted faces"
+  }
+]
+JavaScript Code Example:
+javascriptconst taskUUID = crypto.randomUUID();
+const request = [{
+  taskType: 'imageInference',
+  taskUUID: taskUUID,
+  model: 'google:4@1',
+  referenceImages: ['image-uuid-here'],
+  positivePrompt: 'Make the car red and add racing stripes'
+}];
+ws.send(JSON.stringify(request));
+5. Multi-Image + Prompt Generation
+Fuse 2+ images with a prompt to create a new image (e.g., blend scenes, maintain character consistency).
+Use referenceImages as an array of 2-8 UUIDs.
+Example Request:
+json[
+  {
+    "taskType": "imageInference",
+    "taskUUID": "550e8400-e29b-41d4-a716-446655440005",
+    "model": "google:4@1",
+    "referenceImages": [
+      "uuid1-for-person",
+      "uuid2-for-background",
+      "uuid3-for-object"
+    ],
+    "positivePrompt": "Blend the person into the background scene and add the object in the foreground, photorealistic style"
+  }
+]
+Best Practices for Multi-Image:
+
+Ensure images are thematically compatible for better coherence.
+Use detailed prompts to guide fusion (e.g., "Place the character from image 1 in the landscape from image 2").
+
+6. Limitations and Best Practices
+
+Rate Limiting: May encounter temporary limits (providerRateLimitExceeded). Implement retries with backoff.
+Prompt Engineering: Use specific, vivid descriptions. Experiment with enhancePrompt for auto-improvements.
+Reproducibility: Results may vary; use seeds if supported in future updates.
+Error Handling: Check for errors in responses (e.g., invalid dimensions).
+Performance: Ideal for low-latency apps; test prompts iteratively.
+Safety: Enable safety: {"checkContent": true} for content filtering.
+Integration Tips: For conversational editing, chain tasks (use output UUID as input for next).
+Costs: Include includeCost: true to track usage.
+
+For full API reference, visit Runware Docs. If issues arise, contact Runware suppor
