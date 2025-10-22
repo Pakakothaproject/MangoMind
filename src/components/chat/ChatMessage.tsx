@@ -1,12 +1,55 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { Model } from '../../types';
 import type { Message } from '../../types';
 import { GeminiIcon, BotIcon, AlertTriangleIcon } from '../Icons';
 import { Avatar, AvatarFallback } from '../ui/avatar';
-import { Skeleton } from '../ui/skeleton';
 import { useModelStore } from '../../store/modelStore';
 import { CodeBlock } from './CodeBlock';
+
+const StreamingIndicator: React.FC = () => {
+    return (
+        <div className="flex items-center gap-1 text-xs text-[var(--jackfruit-light)] opacity-70 mt-1">
+            <div className="w-1.5 h-1.5 bg-[var(--jackfruit-accent)] rounded-full animate-pulse"></div>
+            <span>Generating...</span>
+        </div>
+    );
+};
+
+const ThinkingIndicator: React.FC<{ modelName?: string }> = ({ modelName }) => {
+    const [currentPhase, setCurrentPhase] = useState(0);
+
+    const phases = [
+        { text: "Thinking", dots: "..." },
+        { text: "Analyzing your request", dots: "." },
+        { text: "Processing information", dots: "..." },
+        { text: "Generating response", dots: ".." },
+        { text: "Almost ready", dots: "." }
+    ];
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentPhase(prev => (prev + 1) % phases.length);
+        }, 1800); // Change phase every 1.8 seconds for smoother flow
+
+        return () => clearInterval(interval);
+    }, []);
+
+    const phase = phases[currentPhase];
+
+    return (
+        <div className="flex flex-col gap-2 pt-1">
+            <p className="font-bold text-sm">{modelName || 'AI'}</p>
+            <div className="flex items-center gap-2 text-sm text-[var(--jackfruit-light)]">
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-[var(--jackfruit-accent)] rounded-full animate-pulse"></div>
+                    <span className="animate-pulse">{phase.text}</span>
+                    <span className="animate-bounce">{phase.dots}</span>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 interface ChatMessageProps {
     message: Message;
@@ -77,11 +120,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isTile = fals
         return (
             <div className={`flex items-start gap-4 p-3 w-full`}>
                 <BotAvatar modelId={message.sourceModel} />
-                <div className="flex flex-col gap-2 pt-1">
-                    <p className="font-bold text-sm">{modelInfo?.name || message.sourceModel}</p>
-                    <Skeleton className="h-4 w-48 bg-[var(--jackfruit-dark)]" />
-                    <Skeleton className="h-4 w-32 bg-[var(--jackfruit-dark)]" />
-                </div>
+                <ThinkingIndicator modelName={modelInfo?.name || message.sourceModel} />
             </div>
         );
     }
@@ -137,6 +176,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isTile = fals
                             return <div key={index} dangerouslySetInnerHTML={{ __html: marked.parse(part.content, { gfm: true, breaks: true }) }} />;
                         }
                     })}
+                    {message.isLoading && <StreamingIndicator />}
                 </div>
             </div>
         </div>

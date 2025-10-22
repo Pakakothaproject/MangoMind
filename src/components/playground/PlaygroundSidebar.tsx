@@ -68,9 +68,9 @@ const PlaygroundSidebar: React.FC = () => {
     };
 
     return (
-        <div className="h-full flex-shrink-0 p-4 pl-4 pb-0">
+        <div className="h-full flex-shrink-0 p-4 pl-4 pb-6">
             <aside 
-                className="w-20 h-full bg-[#2C2C2C] p-2 flex flex-col items-center gap-2 rounded-t-xl border-t border-x border-white/30 shadow-2xl"
+                className="w-20 h-full bg-[#2C2C2C] p-2 pb-6 flex flex-col items-center gap-0.5 rounded-t-xl border-t border-x border-white/30 shadow-2xl"
             >
                 {sidebarModes.map((modeConfig, index) => (
                     <SidebarButton 
