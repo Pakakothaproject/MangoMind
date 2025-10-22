@@ -2,10 +2,11 @@ import { create } from 'zustand';
 import { supabase } from '../services/supabaseClient';
 import type { UploadedImage, Profile } from '../types';
 import type { NavigateFunction } from 'react-router-dom';
-import type { AuthSession as Session, User } from '@supabase/supabase-js';
+import type { AuthSession as Session } from '@supabase/supabase-js';
 import { getTokenBalance } from '../services/tokenService';
 import { getTotalStorageUsage } from '../services/generationService';
 import { getUserPreferences, updateUserPreferences } from '../services/preferencesService';
+import { clearModelsCache } from '../services/configService';
 
 // Default models if user has not set any preference
 const DEFAULT_SEARCH_MODEL = 'perplexity/sonar-pro';
@@ -168,6 +169,14 @@ export const useAppStore = create<AppState>((set, get) => ({
                     sessionStorage.setItem('cachedUserId', session.user.id);
                     sessionStorage.setItem('profileCacheTimestamp', currentTime.toString());
                     
+                    // Check if package has changed and clear model cache if needed
+                    const previousPackageId = get().profile?.current_package_id;
+                    const newPackageId = profile?.current_package_id;
+                    if (previousPackageId !== newPackageId) {
+                        console.log('DEBUG: Package changed, clearing model cache');
+                        clearModelsCache();
+                    }
+                    
                     set({ session, profile, authLoading: false, tokenBalance: profile?.token_balance || 0 });
                     
                     get().actions.fetchStorageUsage();
@@ -211,6 +220,13 @@ export const useAppStore = create<AppState>((set, get) => ({
                 if (fetchError) {
                     console.error("Error re-fetching profile after update", fetchError);
                 } else if (data) {
+                    // Check if package changed and clear model cache
+                    const previousPackageId = get().profile?.current_package_id;
+                    const newPackageId = (data as Profile).current_package_id;
+                    if (previousPackageId !== newPackageId) {
+                        console.log('DEBUG: Package changed after profile update, clearing model cache');
+                        clearModelsCache();
+                    }
                     set({ profile: data as Profile });
                 }
             }

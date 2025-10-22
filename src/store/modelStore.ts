@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getAvailableModels, getAllModels } from '../services/configService';
+import { getAvailableModels, getAllModels, clearModelsCache } from '../services/configService';
 import { MODEL_SUPPORT_MAP } from '../constants/models';
 import type { ModelDefinition } from '../types';
 
@@ -22,6 +22,7 @@ interface ModelStoreState {
     actions: {
         fetchModels: () => Promise<void>;
         fetchAllModels: () => Promise<void>;
+        clearCache: () => void;
     };
 }
 
@@ -50,7 +51,7 @@ export const useModelStore = create<ModelStoreState>((set, get) => ({
         },
         fetchAllModels: async () => {
             try {
-                const allDbModels = await getAllModels(true);
+                const allDbModels = await getAllModels();
                 console.log('DEBUG modelStore: Fetched ALL models from DB:', allDbModels.length);
                 const mergedAllModels = allDbModels.map(model => ({
                     ...model,
@@ -61,6 +62,11 @@ export const useModelStore = create<ModelStoreState>((set, get) => ({
             } catch (error) {
                 console.error("Failed to fetch all models:", error);
             }
+        },
+        clearCache: () => {
+            console.log('DEBUG modelStore: Clearing cache and refetching models');
+            clearModelsCache();
+            get().actions.fetchModels();
         },
     },
 }));

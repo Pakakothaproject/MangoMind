@@ -1,8 +1,8 @@
-// store/playgroundStore.ts
 import { create } from 'zustand';
-import type { UploadedImage } from '../types';
 import type { AuthSession as Session } from '@supabase/supabase-js';
-import useLocalStorage from '../hooks/use-local-storage';
+import { runwareService } from '../services/runwareService';
+import { addGeneration } from '../services/generationService';
+import { useModelStore } from './modelStore';
 
 export type PlaygroundMode = 'generate' | 'tryon' | 'scene' | 'hair' | 'combine' | 'ads' | 'chat';
 
@@ -102,13 +102,78 @@ export const usePlaygroundStore = create<PlaygroundState>((set, get) => ({
     setPrompt: (prompt) => set({ prompt }),
     // FIX: No value exists in scope for the shorthand property 'negativePrompt'.
     setNegativePrompt: (prompt) => set({ negativePrompt: prompt }),
-    generateImage: async () => { /* Placeholder */ },
+    generateImage: async () => {
+        const { prompt, negativePrompt, session } = get();
+        if (!prompt) {
+            set({ error: 'Prompt cannot be empty.' });
+            return;
+        }
+
+        if (!session?.user) {
+            set({ error: 'You must be logged in to generate images.' });
+            return;
+        }
+
+        set({ isLoading: true, error: null, generatedImage: null, loadingMessage: 'Generating your image...' });
+
+        try {
+            const { models } = useModelStore.getState();
+            // Use a default T2I model for playground generation
+            const defaultModel = models.find(m => m.tags?.includes('t2i') && m.is_accessible) || models.find(m => m.tags?.includes('t2i'));
+            if (!defaultModel) {
+                throw new Error("No image generation models available.");
+            }
+
+            const { images: results, text: preGenText } = await runwareService.generateImageFromText(prompt, {
+                modelInfo: defaultModel,
+                negativePrompt,
+                steps: defaultModel.supports.maxSteps || defaultModel.supports.defaultSteps || 30,
+                cfgScale: defaultModel.supports.defaultCfg || 7.5,
+                numberOfImages: 1,
+                aspectRatio: '1:1',
+            });
+
+            if (preGenText) {
+                set({ loadingMessage: preGenText });
+            }
+
+            if (!results || results.length === 0) {
+                if (!preGenText) {
+                    throw new Error("API returned no image data.");
+                }
+            }
+
+            if (results && results.length > 0) {
+                set(state => {
+                    const newHistory = [...state.history, { prompt, image: results[0] }];
+                    return {
+                        generatedImage: results[0],
+                        history: newHistory,
+                        historyIndex: newHistory.length - 1,
+                        loadingMessage: null,
+                    }
+                });
+
+                // Save to generations
+                addGeneration(session.user.id, results[0], prompt, 'text-to-image', defaultModel.id, 'runware', {
+                    negativePrompt,
+                    steps: defaultModel.supports.maxSteps,
+                    cfgScale: defaultModel.supports.defaultCfg || 7.5
+                });
+            }
+
+        } catch (err) {
+            set({ error: `Generation failed: ${err instanceof Error ? err.message : 'Unknown error'}` });
+        } finally {
+            set({ isLoading: false, loadingMessage: null });
+        }
+    },
     stopAll: () => get().abortController?.abort(),
     undo: () => {
         set(state => {
             if (state.historyIndex > 0) {
                 const newIndex = state.historyIndex - 1;
-                return { 
+                return {
                     historyIndex: newIndex,
                     generatedImage: state.history[newIndex].image,
                     prompt: state.history[newIndex].prompt
@@ -121,7 +186,7 @@ export const usePlaygroundStore = create<PlaygroundState>((set, get) => ({
          set(state => {
             if (state.historyIndex < state.history.length - 1) {
                 const newIndex = state.historyIndex + 1;
-                return { 
+                return {
                     historyIndex: newIndex,
                     generatedImage: state.history[newIndex].image,
                     prompt: state.history[newIndex].prompt
@@ -130,7 +195,10 @@ export const usePlaygroundStore = create<PlaygroundState>((set, get) => ({
             return {};
         });
     },
-    handleViewerAction: (prompt) => { /* Placeholder for edits */ },
+    handleViewerAction: (prompt) => {
+        set({ prompt });
+        get().generateImage();
+    },
     setIsSelectingPoint: (isSelecting) => set({ isSelectingPoint: isSelecting }),
     setSelectedPoint: (point) => set({ selectedPoint: point }),
     setActivePresetPanel: (panel) => set({ activePresetPanel: panel }),
