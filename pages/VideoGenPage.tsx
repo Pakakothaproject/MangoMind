@@ -104,7 +104,7 @@ const VideoPanelContent: React.FC<VideoPanelContentProps> = ({
                         label="Video Generation Model"
                         showAllModels={true}
                         maxModels={10}
-                        onOpenGallery={openModelGallery}
+                        onOpenGallery={() => openModelGallery('video')}
                         modelType="video"
                     />
                 </div>

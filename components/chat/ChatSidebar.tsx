@@ -5,6 +5,7 @@ import { EditIcon, Trash2Icon, ChevronDownIcon, ChevronUpIcon, MoreHorizontalIco
 import { useChatSessionStore } from '../../store/chat';
 import { useAppStore } from '../../store/appStore';
 import ConfirmationModal from '../ConfirmationModal';
+import { useHoverSoundProps } from '../../useSound';
 
 
 const ChatListItem: React.FC<{
@@ -19,6 +20,7 @@ const ChatListItem: React.FC<{
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
+    const hoverSoundProps = useHoverSoundProps();
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -56,8 +58,9 @@ const ChatListItem: React.FC<{
     };
 
     return (
-        <div 
-            className={`flex items-center gap-2 pr-1 rounded-lg cursor-pointer relative transition-colors ${isActive ? 'bg-[var(--jackfruit-hover-dark)] border-l-2 border-[var(--jackfruit-accent)]' : 'hover:bg-[var(--jackfruit-hover-dark)] border-l-2 border-transparent'}`}
+        <div
+            {...hoverSoundProps}
+            className={`flex items-center gap-2 pr-1 rounded-lg cursor-pointer relative transition-all duration-200 transform hover:scale-[1.02] hover:shadow-md ${isActive ? 'bg-[var(--jackfruit-hover-dark)] border-l-2 border-[var(--jackfruit-accent)] scale-[1.01]' : 'hover:bg-[var(--jackfruit-hover-dark)] border-l-2 border-transparent'}`}
             style={{ paddingLeft: isActive ? 'calc(0.5rem - 2px)' : '0.5rem' }}
             onClick={() => !isEditing && onSelect()}
             draggable="true"
@@ -199,7 +202,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ onChatSelect, onNewCha
     };
     
     return (
-        <aside className="w-full md:w-80 bg-[var(--jackfruit-dark)] flex flex-col p-4 border-r border-[var(--jackfruit-darker)] h-full">
+        <aside className="w-full md:w-64 bg-[var(--jackfruit-dark)] flex flex-col p-3 border-r border-[var(--jackfruit-darker)] h-full">
             <div className="flex items-center space-x-3 mb-4">
                 <img alt="MangoMind logo" className="w-10 h-10 rounded-lg" src="https://res.cloudinary.com/dy80ftu9k/image/upload/v1760277916/SADW_eed6gu.png" />
                 <h1 className="text-2xl font-bold text-[var(--jackfruit-light)]">MangoMind</h1>
@@ -288,10 +291,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ onChatSelect, onNewCha
                 <div className="hidden md:block">
                     <button
                         onClick={navigateToPersonas}
-                        className="w-full text-center text-[var(--jackfruit-muted)] font-semibold py-2 px-2 rounded-lg flex items-center justify-center gap-2 hover:bg-[var(--jackfruit-hover-dark)] hover:text-white transition-colors text-sm"
+                        className="w-full relative overflow-hidden bg-gradient-to-r from-[var(--jackfruit-accent)]/20 to-[var(--nb-primary)]/20 hover:from-[var(--jackfruit-accent)]/30 hover:to-[var(--nb-primary)]/30 border border-[var(--jackfruit-accent)]/30 hover:border-[var(--jackfruit-accent)]/50 text-[var(--jackfruit-light)] font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-[var(--jackfruit-accent)]/20 text-sm group"
                     >
-                        <span className="material-symbols-outlined">person_pin</span>
-                        Explore Personas
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform duration-300">person_pin</span>
+                        <span className="group-hover:translate-x-0.5 transition-transform duration-300">Explore Personas</span>
+                        <span className="absolute inset-0 bg-gradient-to-r from-[var(--jackfruit-accent)]/0 via-[var(--jackfruit-accent)]/10 to-[var(--jackfruit-accent)]/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></span>
                     </button>
                 </div>
             </div>

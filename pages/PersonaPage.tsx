@@ -43,20 +43,30 @@ const PersonaPage: React.FC = () => {
     }, [isInitialized, personaActions]);
 
     const handlePersonaSelect = async (persona: typeof personas[0]) => {
-        // Look for a premium, then a standard model to assign to the new chat
-        const premiumModel = availableModels.find(model => model.id === 'openai/gpt-5-chat-latest' && model.is_accessible);
-        const standardModel = availableModels.find(model => model.id === 'google/gemini-2.5-flash' && model.is_accessible);
+        try {
+            // Look for a premium, then a standard model to assign to the new chat
+            const premiumModel = availableModels.find(model => model.id === 'openai/gpt-5-chat-latest' && model.is_accessible);
+            const standardModel = availableModels.find(model => model.id === 'google/gemini-2.5-flash' && model.is_accessible);
 
-        const personaModels = premiumModel 
-            ? [premiumModel.id] 
-            : (standardModel ? [standardModel.id] : ['auto']); // Fallback to auto
+            const personaModels = premiumModel 
+                ? [premiumModel.id] 
+                : (standardModel ? [standardModel.id] : ['auto']); // Fallback to auto
             
-        await newChat({
-            title: persona.name,
-            systemPrompt: persona.systemPrompt,
-            models: personaModels,
-        });
-        navigate('/chat');
+            console.log('Creating new chat with persona:', persona.name);
+            const chatId = await newChat({
+                title: persona.name,
+                systemPrompt: persona.systemPrompt,
+                models: personaModels,
+            });
+            
+            console.log('Chat created, navigating to:', chatId);
+            // Navigate with chat ID to ensure proper loading
+            navigate(`/chat?chatId=${chatId}`);
+        } catch (error) {
+            console.error('Failed to create persona chat:', error);
+            // Navigate anyway to show error state
+            navigate('/chat');
+        }
     };
 
     return (

@@ -75,7 +75,7 @@ const ImageGenerationPage: React.FC = () => {
                                 onSelectModel={setModelId}
                                 showAllModels={true}
                                 maxModels={10}
-                                onOpenGallery={openModelGallery}
+                                onOpenGallery={() => openModelGallery('image')}
                                 modelType="image"
                             />
                         </div>
@@ -234,7 +234,7 @@ const ImageGenerationPage: React.FC = () => {
                                     onSelectModel={setModelId}
                                     showAllModels={true}
                                     maxModels={10}
-                                    onOpenGallery={openModelGallery}
+                                    onOpenGallery={() => openModelGallery('image')}
                                     modelType="image"
                                 />
                             </div>

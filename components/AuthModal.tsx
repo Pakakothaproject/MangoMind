@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { XIcon, EyeIcon, EyeOffIcon } from './Icons';
+import EmailConfirmationPanel from './EmailConfirmationPanel';
 
 interface AuthModalProps {
     initialMode: 'signin' | 'signup';
     onClose: () => void;
+    onSignupSuccess?: () => void;
 }
 
-const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose }) => {
+const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose, onSignupSuccess }) => {
     const [mode, setMode] = useState(initialMode);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -15,6 +17,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose }) => {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmationPanel, setShowConfirmationPanel] = useState(false);
+
+    const handleConfirmationClose = () => {
+        setShowConfirmationPanel(false);
+        onClose(); // Close the auth modal as well
+        if (onSignupSuccess) {
+            onSignupSuccess(); // Trigger callback to show sign-in modal
+        }
+    };
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -27,10 +38,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose }) => {
             if (error) {
                 setError(error.message);
             } else {
-                setMessage('Success! Check your email for the confirmation link.');
-                setTimeout(() => {
-                    onClose();
-                }, 2000); // Close modal after 2 seconds
+                setShowConfirmationPanel(true);
             }
         } else { // signin
             const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -131,7 +139,8 @@ const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose }) => {
                         type="button"
                         onClick={handleGoogleSignIn}
                         disabled={loading}
-                        className="group relative w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all duration-200 flex items-center justify-center gap-3 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 disabled:hover:shadow-sm"
+                        className="group relative w-full overflow-hidden bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-2xl hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg animate-gradient-x"
+                        style={{ backgroundSize: '200% 200%' }}
                     >
                         {loading ? (
                             <svg className="animate-spin h-6 w-6 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -175,6 +184,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose }) => {
                     </div>
                 </div>
             </div>
+            {showConfirmationPanel && (
+                <EmailConfirmationPanel onClose={handleConfirmationClose} />
+            )}
         </div>
     );
 };

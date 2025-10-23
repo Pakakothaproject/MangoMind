@@ -110,7 +110,14 @@ const ProfileSetupPage: React.FC<ProfileSetupPageProps> = ({ session }) => {
 
             setMessage('Profile saved successfully! Redirecting...');
             setTimeout(() => {
-                window.location.reload(); // Reload to trigger App.tsx's logic
+                // Check if there's an intended URL to redirect to
+                const intendedUrl = sessionStorage.getItem('intendedUrl');
+                if (intendedUrl) {
+                    sessionStorage.removeItem('intendedUrl');
+                    window.location.href = intendedUrl;
+                } else {
+                    window.location.reload(); // Reload to trigger App.tsx's logic
+                }
             }, 1500);
 
         } catch (error) {

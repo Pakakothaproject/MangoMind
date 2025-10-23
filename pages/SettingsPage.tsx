@@ -117,10 +117,17 @@ const SettingsPage: React.FC = () => {
                     <div className="flex-grow flex overflow-hidden">
                         {/* Desktop Sidebar */}
                         <aside className="hidden lg:flex flex-col w-64 bg-[var(--nb-surface)] p-4 border-r border-[var(--nb-border)]">
-                            <div className="mb-6">
+                            <div className="mb-6 flex items-center justify-between">
                                 <h1 className="text-2xl font-bold px-2">Settings</h1>
+                                <button 
+                                    onClick={handleBackToDashboard} 
+                                    className="neo-button neo-icon-button neo-button-secondary hover:scale-110 transition-transform"
+                                    title="Back to Dashboard"
+                                >
+                                    <ArrowLeftIcon />
+                                </button>
                             </div>
-                            <nav className="flex flex-col gap-2">
+                            <nav className="flex-1 flex flex-col gap-2 overflow-y-auto">
                                 <SettingsSidebarLink to="/settings/usage" icon="bar_chart" label="Usage" />
                                 <SettingsSidebarLink to="/settings/profile" icon="person" label="Profile" />
                                 <SettingsSidebarLink to="/settings/account" icon="shield_lock" label="Account" />
@@ -137,9 +144,6 @@ const SettingsPage: React.FC = () => {
                                 >
                                     <LogOutIcon />
                                     <span>Sign Out</span>
-                                </button>
-                                <button onClick={handleBackToDashboard} className="w-full neo-button neo-button-secondary">
-                                    <ArrowLeftIcon /> Back to Dashboard
                                 </button>
                             </div>
                         </aside>

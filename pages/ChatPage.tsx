@@ -28,19 +28,29 @@ const ChatPage: React.FC = () => {
     // Get chat ID from URL
     const urlChatId = searchParams.get('chatId');
 
-    // Initialize chat session with error handling
+    // Initialize chat session with error handling and timeout
     useEffect(() => {
         const initChat = async () => {
             try {
                 if (!isInitialized) {
                     console.log('Initializing chat session...');
-                    await sessionActions.init();
+                    
+                    // Add timeout to prevent infinite loading
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Initialization timeout')), 15000)
+                    );
+                    
+                    await Promise.race([
+                        sessionActions.init(),
+                        timeoutPromise
+                    ]);
+                    
                     console.log('Chat session initialized successfully');
                     setInitError(null);
                 }
             } catch (error) {
                 console.error('Failed to initialize chat:', error);
-                setInitError('Failed to load chat. Please refresh the page.');
+                setInitError('Failed to load chat. Please try refreshing the page.');
             }
         };
         initChat();
@@ -63,8 +73,10 @@ const ChatPage: React.FC = () => {
         return () => window.removeEventListener('resize', checkMobileView);
     }, [appActions]);
     
-    // Sync URL with active chat
+    // Sync URL with active chat - only after initialization is complete
     useEffect(() => {
+        if (!isInitialized) return; // Wait for initialization to complete
+        
         if (urlChatId && urlChatId !== activeChatId) {
             // URL has a chat ID, select it
             sessionActions.selectChat(urlChatId);
@@ -72,7 +84,7 @@ const ChatPage: React.FC = () => {
             // No URL chat ID but we have an active chat on mobile - clear it
             sessionActions.selectChat('');
         }
-    }, [urlChatId, activeChatId, isMobileView, sessionActions]);
+    }, [urlChatId, activeChatId, isMobileView, sessionActions, isInitialized]);
     
     // Handle chat selection with URL update
     const handleChatSelect = (chatId: string) => {
@@ -134,11 +146,10 @@ const ChatPage: React.FC = () => {
         <div className="flex h-full w-full bg-[var(--jackfruit-background)] font-display overflow-hidden">
             {/* Desktop: Always show sidebar */}
             {!isMobileView && (
-                <div className="w-80 h-full flex-shrink-0 border-r border-[var(--jackfruit-border)]">
+                <div className="w-64 h-full flex-shrink-0 border-r border-[var(--jackfruit-border)]">
                     <ChatSidebar 
                         onChatSelect={handleChatSelect} 
                         onNewChat={sessionActions.newChat}
-                        onDeleteChat={handleDeleteChat}
                     />
                 </div>
             )}
@@ -149,7 +160,6 @@ const ChatPage: React.FC = () => {
                     <ChatSidebar 
                         onChatSelect={handleChatSelect} 
                         onNewChat={sessionActions.newChat}
-                        onDeleteChat={handleDeleteChat}
                     />
                 </div>
             )}

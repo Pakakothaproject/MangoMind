@@ -32,13 +32,13 @@ const TokenCounter: React.FC = () => {
     };
 
     return (
-        <div className="fixed top-4 right-4 z-50 group">
+        <div className="fixed top-2 right-2 md:top-4 md:right-4 z-50 group">
             <div 
-                className="flex items-center gap-2 bg-[var(--nb-surface)] text-[var(--nb-text)] px-3 py-1.5 rounded-full shadow-lg border border-[var(--nb-border)] cursor-pointer hover:bg-[var(--nb-surface-alt)] transition-colors"
+                className="flex items-center gap-1 md:gap-2 bg-[var(--nb-surface)] text-[var(--nb-text)] px-2 py-1 md:px-3 md:py-1.5 rounded-full shadow-lg border border-[var(--nb-border)] cursor-pointer hover:bg-[var(--nb-surface-alt)] transition-colors"
                 onClick={handleClick}
             >
-                <span className="material-symbols-outlined text-[var(--nb-primary)] !text-base">toll</span>
-                <span className="font-semibold text-sm">{profile.token_balance.toLocaleString()}</span>
+                <span className="material-symbols-outlined text-[var(--nb-primary)] !text-xs md:!text-base">toll</span>
+                <span className="font-semibold text-xs md:text-sm">{profile.token_balance.toLocaleString()}</span>
             </div>
             <div className="absolute top-full right-0 mt-2 p-3 neo-card w-56 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                 <h4 className="font-bold text-sm mb-2">Account Status</h4>

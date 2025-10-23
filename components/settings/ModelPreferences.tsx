@@ -114,18 +114,31 @@ const ModelPreferences: React.FC = () => {
             setAvailableModels(chatModels);
             setAvailableImageModels(imageModels);
             setAvailableVideoModels(videoModels);
-            
-            // Update preferred models after setting available models
-            setPreferredModels(prev => prev.filter(pm => models.some(am => am.id === pm)));
-            setPreferredImageModels(prev => prev.filter(pm => imageModels.some(am => am.id === pm)));
-            setPreferredVideoModels(prev => prev.filter(pm => videoModels.some(am => am.id === pm)));
-            
             setIsLoading(false);
         }).catch(error => {
             console.error('Error loading models:', error);
             setIsLoading(false);
         });
     }, []); // Remove dependencies to prevent infinite loops
+    
+    // Separate useEffect to update preferred models after available models are loaded
+    useEffect(() => {
+        if (availableModels.length > 0) {
+            setPreferredModels(prev => prev.filter(pm => availableModels.some(am => am.id === pm)));
+        }
+    }, [availableModels, setPreferredModels]);
+    
+    useEffect(() => {
+        if (availableImageModels.length > 0) {
+            setPreferredImageModels(prev => prev.filter(pm => availableImageModels.some(am => am.id === pm)));
+        }
+    }, [availableImageModels, setPreferredImageModels]);
+    
+    useEffect(() => {
+        if (availableVideoModels.length > 0) {
+            setPreferredVideoModels(prev => prev.filter(pm => availableVideoModels.some(am => am.id === pm)));
+        }
+    }, [availableVideoModels, setPreferredVideoModels]);
     
     const userAccessibleCount = useMemo(() => availableModels.filter(m => m.is_accessible).length, [availableModels]);
     const totalActiveModels = availableModels.length;

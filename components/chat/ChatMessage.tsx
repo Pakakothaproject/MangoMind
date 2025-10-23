@@ -132,7 +132,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isTile = fals
                     <BotAvatar modelId={message.sourceModel} />
                 </div>
             )}
-            <div className={`flex flex-col gap-2 overflow-hidden ${isUser ? 'items-end' : ''}`}>
+            <div className={`flex flex-col gap-2 overflow-hidden ${isUser ? 'items-end' : ''} ${!isUser ? 'glassmorphic-message' : ''}`}>
                 {isUser && message.sentWithMode && (
                     <div className={`chat-action-indicator ${message.sentWithMode}`}>
                         <span className="material-symbols-outlined !text-base">
@@ -143,14 +143,25 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isTile = fals
                 )}
                 
                 {!isUser && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                          {message.sourceModel === 'auto' ? (
                             <p className="font-bold text-sm flex items-center gap-1">
                                 <span className="material-symbols-outlined !text-base">auto_awesome</span>
                                 Auto
                             </p>
                         ) : (
-                            <p className="font-bold text-sm">{modelInfo?.name || message.sourceModel}</p>
+                            <>
+                                <p className="font-bold text-sm">{modelInfo?.name || message.sourceModel}</p>
+                                {modelInfo?.tags && modelInfo.tags.length > 0 && (
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                        {modelInfo.tags.slice(0, 3).map(tag => (
+                                            <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--jackfruit-darker)] text-[var(--jackfruit-muted)] border border-[var(--jackfruit-darker)]">
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         )}
                         {message.isError && <AlertTriangleIcon className="w-4 h-4 text-[var(--nb-secondary)]" />}
                     </div>

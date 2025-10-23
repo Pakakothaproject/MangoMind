@@ -3,7 +3,7 @@ import { SunIcon, MoonIcon } from '../Icons';
 import { useAppStore } from '../../store/appStore';
 
 const ThemeSettings: React.FC = () => {
-    const { theme, toggleTheme } = useAppStore();
+    const { theme, actions: { toggleTheme } } = useAppStore();
 
     return (
         <div className="max-w-2xl mx-auto">
@@ -36,8 +36,8 @@ const ThemeSettings: React.FC = () => {
                     
                     <div className="text-sm text-[var(--nb-text-secondary)] space-y-2">
                         <p>Choose your preferred theme for the application interface.</p>
-                        <p>• <strong>Dark Theme:</strong> Default dark interface with golden accents</p>
-                        <p>• <strong>Light Theme:</strong> Light interface with blue accents</p>
+                        <p>• <strong>Dark Theme:</strong> Dark interface with bright golden accents</p>
+                        <p>• <strong>Light Theme:</strong> Off-white goldenish interface with warm tones</p>
                     </div>
                 </div>
             </div>

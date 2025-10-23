@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import AuthModal from '../components/AuthModal';
 
 const LoadingScreen: React.FC<{ progress: number }> = ({ progress }) => (
@@ -59,6 +58,12 @@ const LandingPage: React.FC = () => {
         setShowAuthModal(true);
     };
 
+    const handleSignupSuccess = () => {
+        // After signup confirmation, show sign-in modal
+        setAuthMode('signin');
+        setShowAuthModal(true);
+    };
+
     return (
         <div className="h-screen w-full overflow-hidden relative flex flex-col items-center justify-center p-4 text-white">
             {isLoading && <LoadingScreen progress={progress} />}
@@ -92,10 +97,18 @@ const LandingPage: React.FC = () => {
                     AI-Powered Visual Creation Studio. Transform your ideas into stunning visuals. Virtual try-on, scene swapping, marketing campaigns, and more.
                 </p>
                 <div className="mt-8 flex justify-center gap-4">
-                    <button onClick={() => openAuthModal('signin')} className="landing-page-button neo-button neo-button-primary text-lg px-8">
+                    <button 
+                        onClick={() => openAuthModal('signin')} 
+                        className="landing-page-button relative overflow-hidden bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-bold text-lg px-10 py-4 rounded-full shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 animate-gradient-x"
+                        style={{ backgroundSize: '200% 200%' }}
+                    >
                         Login
                     </button>
-                    <button onClick={() => openAuthModal('signup')} className="landing-page-button neo-button neo-button-secondary text-lg px-8">
+                    <button 
+                        onClick={() => openAuthModal('signup')} 
+                        className="landing-page-button relative overflow-hidden bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 hover:from-green-600 hover:via-teal-600 hover:to-blue-600 text-white font-bold text-lg px-10 py-4 rounded-full shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 animate-gradient-x"
+                        style={{ backgroundSize: '200% 200%' }}
+                    >
                         Sign Up
                     </button>
                 </div>
@@ -104,6 +117,7 @@ const LandingPage: React.FC = () => {
                 <AuthModal
                     initialMode={authMode}
                     onClose={() => setShowAuthModal(false)}
+                    onSignupSuccess={handleSignupSuccess}
                 />
             )}
         </div>
