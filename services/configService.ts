@@ -1,8 +1,11 @@
 import { supabase } from './supabaseClient';
+import { robustRPC, robustSelect, ensureFreshSession } from './robustSupabase';
 import type { ModelDefinition } from '../types';
 
 let availableModelsCache: ModelDefinition[] | null = null;
 let lastUserId: string | null = null;
+let cacheTimestamp: number | null = null;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 // Export a function to clear the cache manually
 export const clearModelsCache = () => {
@@ -13,10 +16,13 @@ export const clearModelsCache = () => {
 
 export const getAllModels = async (): Promise<ModelDefinition[]> => {
     try {
-        // Get all models regardless of active status or user access
-        const { data: modelsData, error } = await supabase
-            .from('models')
-            .select('*');
+        // Ensure fresh session before query
+        await ensureFreshSession();
+        
+        // Get all models with timeout
+        const { data: modelsData, error } = await robustSelect<ModelDefinition>('models', {
+            timeout: 15000 // 15 seconds
+        });
         
         if (error) {
             console.error('getAllModels - Models query error:', error);
@@ -40,29 +46,43 @@ export const getAvailableModels = async (forceRefresh = false): Promise<ModelDef
         console.log('DEBUG: Force refresh - clearing model cache');
         availableModelsCache = null;
         lastUserId = null;
+        cacheTimestamp = null;
     }
 
-    if (availableModelsCache && lastUserId === currentUserId) {
+    // Check cache validity (user and time)
+    const now = Date.now();
+    if (availableModelsCache && 
+        lastUserId === currentUserId && 
+        cacheTimestamp && 
+        (now - cacheTimestamp) < CACHE_DURATION_MS) {
         console.log('DEBUG: Returning cached models:', availableModelsCache.length);
         return availableModelsCache;
+    }
+    
+    // Cache expired or invalid
+    if (cacheTimestamp && (now - cacheTimestamp) >= CACHE_DURATION_MS) {
+        console.log('DEBUG: Cache expired, refreshing models');
     }
 
     try {
         let data;
 
         if (user) {
-            // Authenticated user - use RPC for access control
+            // Ensure fresh session before query
+            await ensureFreshSession();
+            
+            // Authenticated user - use RPC for access control with timeout
             console.log('DEBUG: Fetching models for authenticated user via RPC');
-            const { data: rpcData, error } = await supabase.rpc('get_my_enabled_models');
+            const { data: rpcData, error } = await robustRPC('get_my_enabled_models', undefined, 15000);
 
             if (error) {
                 console.error('getAvailableModels - RPC error:', error);
                 // Fallback to active models if RPC fails
                 console.log('DEBUG: RPC failed, falling back to active models');
-                const { data: fallbackData, error: fallbackError } = await supabase
-                    .from('models')
-                    .select('*')
-                    .eq('is_active', true);
+                const { data: fallbackData, error: fallbackError } = await robustSelect<ModelDefinition>('models', {
+                    filter: (q: any) => q.eq('is_active', true),
+                    timeout: 15000
+                });
 
                 if (fallbackError) {
                     console.error('getAvailableModels - Fallback query error:', fallbackError);
@@ -114,12 +134,12 @@ export const getAvailableModels = async (forceRefresh = false): Promise<ModelDef
                 console.log(`DEBUG: Filtered to ${data.length} accessible models`);
             }
         } else {
-            // Anonymous user - get all active models
+            // Anonymous user - get all active models with timeout
             console.log('DEBUG: Fetching models for anonymous user');
-            const { data: modelsData, error } = await supabase
-                .from('models')
-                .select('*')
-                .eq('is_active', true);
+            const { data: modelsData, error } = await robustSelect<ModelDefinition>('models', {
+                filter: (q: any) => q.eq('is_active', true),
+                timeout: 15000
+            });
 
             if (error) {
                 console.error('getAvailableModels - Models query error:', error);
@@ -134,6 +154,7 @@ export const getAvailableModels = async (forceRefresh = false): Promise<ModelDef
         console.log(`DEBUG: Final models count: ${models.length}`);
         availableModelsCache = models;
         lastUserId = currentUserId;
+        cacheTimestamp = Date.now();
         return models;
     } catch (error) {
         console.error("Failed to fetch available models for user, returning empty list.", error);

@@ -60,11 +60,13 @@ const SidebarAction: React.FC<{ label: string; icon: string; onClick: () => void
         {...hoverSoundProps}
         onClick={onClick} 
         title={isExpanded ? '' : label}
-        className={`relative group rounded-lg transition-colors duration-200 w-full ${isExpanded ? 'flex items-center p-2.5 gap-2.5' : 'flex flex-col items-center p-1.5 justify-center'} ${isDanger ? 'text-red-500 hover:bg-red-500/10' : 'text-[var(--nb-text-secondary)] hover:text-[var(--nb-text)] hover:bg-[var(--nb-surface)]'}`}
+        className={`relative group rounded-lg transition-all duration-200 w-full bg-[var(--nb-surface)] hover:bg-[var(--nb-surface-alt)] border border-[var(--nb-border)] ${isExpanded ? 'flex items-center p-2 gap-2' : 'flex flex-col items-center p-1 justify-center'} ${isDanger ? 'text-red-500 hover:bg-red-500/10' : 'text-[var(--nb-text-secondary)] hover:text-[var(--nb-text)]'}`}
     >
-        <span className="material-symbols-outlined text-xl">{icon}</span>
-        {isExpanded && (
-            <span className={`font-semibold text-xs truncate ${isDanger ? 'text-red-500' : ''}`}>{label}</span>
+        <span className="material-symbols-outlined text-base">{icon}</span>
+        {isExpanded ? (
+            <span className={`font-semibold text-[10px] truncate ${isDanger ? 'text-red-500' : ''}`}>{label}</span>
+        ) : (
+            <span className="text-[7px] font-semibold text-center leading-tight mt-0.5">{label}</span>
         )}
     </button>
 )};
@@ -100,7 +102,7 @@ const Sidebar: React.FC<{ isChatPage?: boolean; isHovered?: boolean }> = ({ isCh
         
         <div className="w-full h-px bg-[var(--nb-border)] my-2 flex-shrink-0"></div>
 
-        <nav className="flex-1 w-full flex flex-col items-stretch justify-between min-h-0 overflow-y-auto">
+        <nav className="flex-1 w-full flex flex-col items-stretch justify-evenly min-h-0 overflow-y-auto py-2">
             <SidebarButton label="Dashboard" icon="auto_awesome" to="/" end isExpanded={displayExpanded} />
             <SidebarButton label="Chat" icon="chat_bubble" to="/chat" isExpanded={displayExpanded} />
             <SidebarButton label="Playground" icon="science" to="/playground" isExpanded={displayExpanded} />
@@ -108,7 +110,7 @@ const Sidebar: React.FC<{ isChatPage?: boolean; isHovered?: boolean }> = ({ isCh
             <SidebarButton label="My Generations" icon="photo_library" to="/generations" isExpanded={displayExpanded} />
         </nav>
 
-        <div className="flex flex-col items-stretch w-full flex-shrink-0">
+        <div className="flex flex-col items-stretch w-full flex-shrink-0 space-y-2">
             <SidebarButton label="Settings" icon="settings" to="/settings" isExpanded={displayExpanded} />
             {!isChatPage && (
                 <SidebarAction 
@@ -201,6 +203,15 @@ const App: React.FC = () => {
     const [showWelcome, setShowWelcome] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     
+    // Store intended URL for redirect after login
+    useEffect(() => {
+        if (!hasValidSession && !authLoading && location.pathname !== '/') {
+            // User is not logged in and trying to access a protected route
+            console.log('Storing intended URL:', location.pathname + location.search);
+            sessionStorage.setItem('intendedUrl', location.pathname + location.search);
+        }
+    }, [hasValidSession, authLoading, location.pathname, location.search]);
+    
     // Simple mobile detection
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -255,6 +266,14 @@ const App: React.FC = () => {
                     // Check if profile exists, if not create it (OAuth fallback)
                     await ensureProfileExists(session);
                     await checkUser();
+                    
+                    // Redirect to intended URL if stored
+                    const intendedUrl = sessionStorage.getItem('intendedUrl');
+                    if (intendedUrl) {
+                        console.log('Redirecting to intended URL:', intendedUrl);
+                        sessionStorage.removeItem('intendedUrl');
+                        navigate(intendedUrl);
+                    }
                 }
             } else if (event === 'SIGNED_OUT') {
                 console.log('User signed out');

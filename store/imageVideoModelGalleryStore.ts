@@ -1,19 +1,26 @@
 import { create } from 'zustand';
 
+export type ModelGalleryType = 'image' | 'video';
+
 interface ImageVideoModelGalleryState {
     isModelGalleryOpen: boolean;
+    galleryType: ModelGalleryType;
     actions: {
-        toggleModelGallery: () => void;
-        openModelGallery: () => void;
+        toggleModelGallery: (type?: ModelGalleryType) => void;
+        openModelGallery: (type: ModelGalleryType) => void;
         closeModelGallery: () => void;
     };
 }
 
 export const useImageVideoModelGalleryStore = create<ImageVideoModelGalleryState>((set) => ({
     isModelGalleryOpen: false,
+    galleryType: 'image',
     actions: {
-        toggleModelGallery: () => set((state) => ({ isModelGalleryOpen: !state.isModelGalleryOpen })),
-        openModelGallery: () => set({ isModelGalleryOpen: true }),
+        toggleModelGallery: (type = 'image') => set((state) => ({ 
+            isModelGalleryOpen: !state.isModelGalleryOpen,
+            galleryType: type 
+        })),
+        openModelGallery: (type) => set({ isModelGalleryOpen: true, galleryType: type }),
         closeModelGallery: () => set({ isModelGalleryOpen: false }),
     },
 }));
@@ -23,3 +30,6 @@ export const useImageVideoModelGalleryActions = () =>
 
 export const useIsModelGalleryOpen = () => 
     useImageVideoModelGalleryStore((state) => state.isModelGalleryOpen);
+
+export const useModelGalleryType = () => 
+    useImageVideoModelGalleryStore((state) => state.galleryType);

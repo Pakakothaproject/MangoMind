@@ -96,6 +96,7 @@ export interface UserPreferences {
     defaultSearchModel?: string;
     defaultThinkingModel?: string;
     defaultMultimodalModel?: string;
+    theme?: 'light' | 'dark';
 }
 
 export interface SubscriptionPackage {

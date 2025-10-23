@@ -96,8 +96,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Actions
     actions: {
         init: (navigate) => {
-            const savedTheme = localStorage.getItem('vdr-theme') as 'light' | 'dark' | null;
-            const initialTheme = savedTheme || 'dark';
+            // Default to dark theme, will be overridden by user preferences if available
+            const initialTheme = 'dark';
             set({ navigate, theme: initialTheme, isMobileView: window.innerWidth < 768 });
             document.documentElement.classList.remove('light', 'dark');
             document.documentElement.classList.add(initialTheme);
@@ -178,6 +178,15 @@ export const useAppStore = create<AppState>((set, get) => ({
                     }
                     
                     set({ session, profile, authLoading: false, tokenBalance: profile?.token_balance || 0 });
+                    
+                    // Load theme preference from profile
+                    const preferences = profile?.user_preferences as any;
+                    if (preferences?.theme) {
+                        const savedTheme = preferences.theme as 'light' | 'dark';
+                        set({ theme: savedTheme });
+                        document.documentElement.classList.remove('light', 'dark');
+                        document.documentElement.classList.add(savedTheme);
+                    }
                     
                     get().actions.fetchStorageUsage();
                     get().actions.fetchChatModeModels();
@@ -280,12 +289,22 @@ export const useAppStore = create<AppState>((set, get) => ({
             get().actions.navigateToGenerator(prompt);
         },
         
-        toggleTheme: () => {
+        toggleTheme: async () => {
             const newTheme = get().theme === 'light' ? 'dark' : 'light';
             set({ theme: newTheme });
             document.documentElement.classList.remove('light', 'dark');
             document.documentElement.classList.add(newTheme);
-            localStorage.setItem('vdr-theme', newTheme);
+            
+            // Save to database if user is logged in
+            const { session } = get();
+            if (session?.user) {
+                try {
+                    await updateUserPreferences({ theme: newTheme });
+                    console.log('Theme preference saved to database:', newTheme);
+                } catch (error) {
+                    console.error('Failed to save theme preference:', error);
+                }
+            }
         },
 
         showBottomNavTemporarily: () => {
