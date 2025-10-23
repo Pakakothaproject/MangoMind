@@ -210,7 +210,15 @@ const App: React.FC = () => {
     
     // Initialize app and auth listener - SIMPLIFIED
     useEffect(() => {
+        let hasInitialized = false;
+        
         const initializeApp = async () => {
+            if (hasInitialized) {
+                console.log('App already initialized, skipping...');
+                return;
+            }
+            
+            hasInitialized = true;
             console.log('App initializing...');
             
             // Initialize store
@@ -219,6 +227,7 @@ const App: React.FC = () => {
             // Check current user - force check on initial load
             try {
                 await checkUser(true);
+                console.log('Initial user check complete');
             } catch (error) {
                 console.error('Error checking user:', error);
             }
@@ -230,45 +239,42 @@ const App: React.FC = () => {
         let isInitialSession = true; // Track if this is the first session check
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            // Only handle actual auth events, not tab visibility changes
             console.log('Auth event:', event, 'Session exists:', !!session, 'Initial:', isInitialSession);
             
-            // Skip the first INITIAL_SESSION event which fires on tab switches
-            if (event === 'INITIAL_SESSION' && !isInitialSession) {
-                console.log('Skipping INITIAL_SESSION on tab switch');
+            // Skip INITIAL_SESSION - we already handled it in initializeApp
+            if (event === 'INITIAL_SESSION') {
+                console.log('Skipping INITIAL_SESSION - already initialized');
+                isInitialSession = false;
                 return;
             }
             
-            // Mark that we've processed the initial session
-            if (event === 'INITIAL_SESSION') {
-                isInitialSession = false;
-            }
-            
-            // Only respond to meaningful auth state changes, ignore tab switch events
-            if (event === 'SIGNED_IN') {
+            // Only respond to actual sign-in events (not initial load)
+            if (event === 'SIGNED_IN' && !isInitialSession) {
+                console.log('User signed in, checking profile...');
                 if (session) {
                     // Check if profile exists, if not create it (OAuth fallback)
                     await ensureProfileExists(session);
-                    checkUser();
+                    await checkUser();
                 }
             } else if (event === 'SIGNED_OUT') {
+                console.log('User signed out');
                 useAppStore.setState({ session: null, profile: null, authLoading: false });
                 navigate('/');
+            } else if (event === 'TOKEN_REFRESHED') {
+                console.log('Token refreshed - no action needed');
             }
-            // Ignore these events that commonly fire on tab switches:
-            // - 'INITIAL_SESSION' - fires when auth client initializes (handled above)
-            // - 'TOKEN_REFRESHED' - happens automatically, not user-initiated
-            // - 'MFA_CHALLENGE_VERIFIED' - MFA related
-            // - Any other events that don't represent actual user auth changes
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            console.log('Cleaning up auth subscription');
+            subscription.unsubscribe();
+        };
     }, []); // Only run once on mount
 
     // Ensure profile exists for OAuth users (fallback if trigger fails)
     const ensureProfileExists = async (session: any) => {
         try {
-            console.log('Checking if profile exists for user:', session.user.id);
+            console.log('ensureProfileExists: Checking profile for user:', session.user.id);
             
             // Check if profile already exists
             const { data: existingProfile, error: fetchError } = await supabase
@@ -284,11 +290,11 @@ const App: React.FC = () => {
             
             // If profile exists, we're good
             if (existingProfile) {
-                console.log('Profile already exists:', existingProfile.username);
+                console.log('ensureProfileExists: Profile already exists:', existingProfile.username);
                 return;
             }
             
-            console.log('Profile does not exist, creating fallback profile...');
+            console.log('ensureProfileExists: Profile does not exist, creating fallback profile...');
             
             // Generate username from email or metadata
             const email = session.user.email || '';
@@ -316,7 +322,7 @@ const App: React.FC = () => {
                 finalUsername = `${username}${counter}`;
             }
             
-            console.log('Creating profile with username:', finalUsername);
+            console.log('ensureProfileExists: Creating profile with username:', finalUsername);
             
             // Create profile
             const { error: insertError } = await supabase
@@ -336,13 +342,13 @@ const App: React.FC = () => {
                 return;
             }
             
-            console.log('✅ Profile created successfully via fallback');
+            console.log('ensureProfileExists: ✅ Profile created successfully');
             
             // Create default categories
             await supabase.from('categories').insert([
                 { user_id: session.user.id, name: 'Work' },
                 { user_id: session.user.id, name: 'Personal' }
-            ]).then(() => console.log('✅ Default categories created'));
+            ]).then(() => console.log('ensureProfileExists: ✅ Default categories created'));
             
             // Create default personas
             await supabase.from('personas').insert([
@@ -364,10 +370,10 @@ const App: React.FC = () => {
                     icon: 'gavel',
                     system_prompt: 'You are a knowledgeable and professional lawyer. Provide general legal information and explanations for educational purposes, but always state that you are not giving legal advice and the user should consult with a licensed attorney for their specific situation.'
                 }
-            ]).then(() => console.log('✅ Default personas created'));
+            ]).then(() => console.log('ensureProfileExists: ✅ Default personas created'));
             
         } catch (error) {
-            console.error('Error in ensureProfileExists:', error);
+            console.error('ensureProfileExists: Error:', error);
         }
     };
 

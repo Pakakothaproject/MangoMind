@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useChatSessionStore, useChatMessagesStore, usePersonaStore } from '../store/chat';
 import { useAppStore } from '../store/appStore';
 import { ChatSidebar } from '../components/chat/ChatSidebar';
@@ -10,6 +11,8 @@ import ConfirmationModal from '../components/ConfirmationModal';
 
 
 const ChatPage: React.FC = () => {
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { chats, activeChatId, isInitialized, actions: sessionActions } = useChatSessionStore();
     const { isStreaming } = useChatMessagesStore();
     const { personas, activePersonaId, actions: personaActions } = usePersonaStore();
@@ -17,14 +20,30 @@ const ChatPage: React.FC = () => {
     
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [chatToDelete, setChatToDelete] = useState<string | null>(null);
+    const [initError, setInitError] = useState<string | null>(null);
 
     const activeChat = chats.find(c => c.id === activeChatId) || null;
     const activePersona = personas.find(p => p.id === activePersonaId) || null;
+    
+    // Get chat ID from URL
+    const urlChatId = searchParams.get('chatId');
 
+    // Initialize chat session with error handling
     useEffect(() => {
-        if (!isInitialized) {
-            sessionActions.init();
-        }
+        const initChat = async () => {
+            try {
+                if (!isInitialized) {
+                    console.log('Initializing chat session...');
+                    await sessionActions.init();
+                    console.log('Chat session initialized successfully');
+                    setInitError(null);
+                }
+            } catch (error) {
+                console.error('Failed to initialize chat:', error);
+                setInitError('Failed to load chat. Please refresh the page.');
+            }
+        };
+        initChat();
     }, [isInitialized, sessionActions]);
 
     useEffect(() => {
@@ -43,6 +62,36 @@ const ChatPage: React.FC = () => {
         
         return () => window.removeEventListener('resize', checkMobileView);
     }, [appActions]);
+    
+    // Sync URL with active chat
+    useEffect(() => {
+        if (urlChatId && urlChatId !== activeChatId) {
+            // URL has a chat ID, select it
+            sessionActions.selectChat(urlChatId);
+        } else if (!urlChatId && activeChatId && isMobileView) {
+            // No URL chat ID but we have an active chat on mobile - clear it
+            sessionActions.selectChat('');
+        }
+    }, [urlChatId, activeChatId, isMobileView, sessionActions]);
+    
+    // Handle chat selection with URL update
+    const handleChatSelect = (chatId: string) => {
+        if (chatId) {
+            // Set URL parameter for browser back button support
+            setSearchParams({ chatId });
+        } else {
+            // Clear URL parameter when going back to list
+            setSearchParams({});
+        }
+        sessionActions.selectChat(chatId);
+    };
+    
+    // Handle back navigation
+    const handleBack = () => {
+        // Clear URL parameter and chat selection
+        setSearchParams({});
+        sessionActions.selectChat('');
+    };
 
     const handleDeleteChat = (chatId: string) => {
         setChatToDelete(chatId);
@@ -57,22 +106,37 @@ const ChatPage: React.FC = () => {
         }
     };
 
+    // Show loading or error state
     if (!isInitialized) {
         return (
             <div className="flex h-full w-full bg-[var(--jackfruit-background)] font-display">
-                <div className="flex-1 flex items-center justify-center">
-                    <LoadingSpinner message="Loading chat..." />
+                <div className="flex-1 flex items-center justify-center p-4">
+                    {initError ? (
+                        <div className="text-center">
+                            <span className="material-symbols-outlined text-6xl text-red-500">error</span>
+                            <h2 className="text-xl font-bold mt-4 text-[var(--jackfruit-light)]">{initError}</h2>
+                            <button 
+                                onClick={() => window.location.reload()} 
+                                className="mt-4 px-4 py-2 bg-[var(--nb-primary)] text-black rounded-lg hover:opacity-90"
+                            >
+                                Refresh Page
+                            </button>
+                        </div>
+                    ) : (
+                        <LoadingSpinner message="Loading chat..." />
+                    )}
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex h-full w-full bg-[var(--jackfruit-background)] font-display">
+        <div className="flex h-full w-full bg-[var(--jackfruit-background)] font-display overflow-hidden">
+            {/* Desktop: Always show sidebar */}
             {!isMobileView && (
-                <div className="w-80 h-full flex-shrink-0">
+                <div className="w-80 h-full flex-shrink-0 border-r border-[var(--jackfruit-border)]">
                     <ChatSidebar 
-                        onChatSelect={sessionActions.selectChat} 
+                        onChatSelect={handleChatSelect} 
                         onNewChat={sessionActions.newChat}
                         onDeleteChat={handleDeleteChat}
                     />
@@ -83,7 +147,7 @@ const ChatPage: React.FC = () => {
             {isMobileView && !activeChat && (
                 <div className="w-full h-full">
                     <ChatSidebar 
-                        onChatSelect={sessionActions.selectChat} 
+                        onChatSelect={handleChatSelect} 
                         onNewChat={sessionActions.newChat}
                         onDeleteChat={handleDeleteChat}
                     />
@@ -92,21 +156,21 @@ const ChatPage: React.FC = () => {
             
             {/* Chat content area */}
             {(!isMobileView || activeChat) && (
-                <div className="flex-1 h-full min-w-0">
+                <div className="flex-1 h-full min-w-0 flex flex-col">
                     {activeChat ? (
                         <ChatWindow
                             key={activeChat.id}
                             chat={activeChat}
                             isStreaming={isStreaming}
-                            onBack={isMobileView ? () => sessionActions.selectChat('') : undefined}
+                            onBack={isMobileView ? handleBack : undefined}
                             onDeleteChat={() => handleDeleteChat(activeChat.id)}
                         />
                     ) : (
-                        <div className="flex-1 h-full flex items-center justify-center text-center text-[var(--jackfruit-muted)]">
+                        <div className="flex-1 h-full flex items-center justify-center text-center text-[var(--jackfruit-muted)] p-4">
                             <div>
                                 <span className="material-symbols-outlined text-6xl">chat_bubble</span>
-                                <h2 className="text-2xl font-bold mt-4">Chat</h2>
-                                <p>Select a chat or create a new one to begin.</p>
+                                <h2 className="text-xl md:text-2xl font-bold mt-4">Chat</h2>
+                                <p className="text-sm md:text-base">Select a chat or create a new one to begin.</p>
                             </div>
                         </div>
                     )}
@@ -115,7 +179,8 @@ const ChatPage: React.FC = () => {
 
             <ModelGalleryPanel />
 
-            {isMobileView && <BottomNavBar />}
+            {/* Mobile bottom nav - only show when not in active chat to avoid overlap */}
+            {isMobileView && !activeChat && <BottomNavBar />}
 
             <ConfirmationModal
                 isOpen={showDeleteConfirm}
@@ -129,5 +194,7 @@ const ChatPage: React.FC = () => {
         </div>
     );
 };
+
+ChatPage.displayName = 'ChatPage';
 
 export default ChatPage;
