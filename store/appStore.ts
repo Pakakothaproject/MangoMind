@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../services/supabaseClient';
+import { connectionManager } from '../services/connectionManager';
 import type { UploadedImage, Profile } from '../types';
 import type { NavigateFunction } from 'react-router-dom';
 import type { AuthSession as Session } from '@supabase/supabase-js';
@@ -45,7 +46,7 @@ interface AppState {
     // Actions
     actions: {
         init: (navigate: NavigateFunction) => void;
-        checkUser: () => void;
+        checkUser: (force?: boolean) => void;
         signOut: () => Promise<void>;
         updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
         
@@ -112,7 +113,10 @@ export const useAppStore = create<AppState>((set, get) => ({
             try {
                 console.log('DEBUG: checkUser() called, force:', force);
                 
-                // Get current session - if auth state is changing, this might take a moment
+                // Ensure connection is healthy and session is valid
+                await connectionManager.ensureValidSession();
+                
+                // Get current session
                 const { data: { session }, error } = await supabase.auth.getSession();
                 
                 if (error) {
@@ -129,45 +133,15 @@ export const useAppStore = create<AppState>((set, get) => ({
                     return;
                 }
 
-                // Add debounce check - if we checked recently, skip unless forced or session changed
-                const lastCheckTime = sessionStorage.getItem('lastCheckUserTime');
-                const currentTime = Date.now();
-                const debounceMs = 2000; // 2 seconds
-                
-                if (!force && lastCheckTime && (currentTime - parseInt(lastCheckTime)) < debounceMs) {
-                    console.log('DEBUG: Skipping checkUser - too soon since last check');
-                    set({ authLoading: false });
-                    return;
-                }
-                
-                sessionStorage.setItem('lastCheckUserTime', currentTime.toString());
-
                 if (session?.user) {
                     console.log('DEBUG: Session found, fetching profile for user:', session.user.id);
                     
-                    // Check if we already have this user's data cached recently
-                    const cachedUserId = sessionStorage.getItem('cachedUserId');
-                    const cacheTimestamp = sessionStorage.getItem('profileCacheTimestamp');
-                    const cacheExpiry = 30000; // 30 seconds
-                    
-                    // If we have recent cached data for this user, skip refetching
-                    if (!force && cachedUserId === session.user.id && cacheTimestamp && 
-                        (currentTime - parseInt(cacheTimestamp)) < cacheExpiry && get().profile) {
-                        console.log('DEBUG: Using cached profile data');
-                        set({ session, authLoading: false });
-                        return;
-                    }
-                    
-                    // Fetch user profile
+                    // Fetch user profile (removed aggressive caching)
                     const { data: profile } = await supabase
                         .from('profiles')
                         .select(`username, full_name, gender, birth_date, username_last_changed_at, user_preferences, token_balance, current_package_id, package_expires_at, free_generations_remaining, bonus_expires_at, storage_limit_bytes`)
                         .eq('id', session.user.id)
                         .single();
-                    
-                    // Cache the profile data
-                    sessionStorage.setItem('cachedUserId', session.user.id);
-                    sessionStorage.setItem('profileCacheTimestamp', currentTime.toString());
                     
                     // Check if package has changed and clear model cache if needed
                     const previousPackageId = get().profile?.current_package_id;

@@ -2,6 +2,7 @@
 // Robust wrapper for Supabase calls with timeout, retry, and error handling
 
 import { supabase } from './supabaseClient';
+import { connectionManager } from './connectionManager';
 
 interface RetryOptions {
     maxRetries?: number;
@@ -140,7 +141,7 @@ export async function executeRPCWithRetry<T>(
     options: RetryOptions = {}
 ): Promise<{ data: T | null; error: any }> {
     return executeWithRetry(
-        () => supabase.rpc(rpcName, params),
+        async () => await supabase.rpc(rpcName, params),
         options
     );
 }
@@ -149,43 +150,8 @@ export async function executeRPCWithRetry<T>(
  * Refresh the Supabase session if it's expired or about to expire
  */
 export async function ensureValidSession(): Promise<boolean> {
-    try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-            console.error('Error getting session:', error);
-            return false;
-        }
-        
-        if (!session) {
-            return false;
-        }
-        
-        // Check if token is about to expire (within 5 minutes)
-        const expiresAt = session.expires_at;
-        if (expiresAt) {
-            const expiresInMs = (expiresAt * 1000) - Date.now();
-            const fiveMinutesInMs = 5 * 60 * 1000;
-            
-            if (expiresInMs < fiveMinutesInMs) {
-                console.log('Session expiring soon, refreshing...');
-                const { data, error: refreshError } = await supabase.auth.refreshSession();
-                
-                if (refreshError) {
-                    console.error('Error refreshing session:', refreshError);
-                    return false;
-                }
-                
-                console.log('Session refreshed successfully');
-                return !!data.session;
-            }
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error ensuring valid session:', error);
-        return false;
-    }
+    // Use connection manager for session validation
+    return await connectionManager.ensureValidSession();
 }
 
 /**
@@ -195,8 +161,12 @@ export async function executeWithSessionCheck<T>(
     queryFn: () => Promise<{ data: T | null; error: any }>,
     options: RetryOptions = {}
 ): Promise<{ data: T | null; error: any }> {
-    // First, ensure we have a valid session
-    await ensureValidSession();
+    // First, ensure we have a valid session and healthy connection
+    const isValid = await ensureValidSession();
+    
+    if (!isValid) {
+        console.warn('[SupabaseWrapper] Invalid session, attempting to continue anyway...');
+    }
     
     // Then execute the query with retry logic
     return executeWithRetry(queryFn, options);
@@ -226,15 +196,15 @@ export async function selectWithRetry<T>(
     options: RetryOptions = {}
 ): Promise<{ data: T[] | null; error: any }> {
     return executeWithSessionCheck(
-        () => {
+        async () => {
             let query = supabase.from(table).select(columns);
             if (filters) {
                 query = filters(query);
             }
-            return query;
+            return await query as any;
         },
         options
-    );
+    ) as Promise<{ data: T[] | null; error: any }>;
 }
 
 /**
@@ -246,7 +216,7 @@ export async function insertWithRetry<T>(
     options: RetryOptions = {}
 ): Promise<{ data: T | null; error: any }> {
     return executeWithSessionCheck(
-        () => supabase.from(table).insert(data).select().single(),
+        async () => await supabase.from(table).insert(data).select().single(),
         options
     );
 }
@@ -261,10 +231,10 @@ export async function updateWithRetry<T>(
     options: RetryOptions = {}
 ): Promise<{ data: T | null; error: any }> {
     return executeWithSessionCheck(
-        () => {
+        async () => {
             let query = supabase.from(table).update(data);
             query = filters(query);
-            return query.select().single();
+            return await query.select().single();
         },
         options
     );
@@ -279,10 +249,10 @@ export async function deleteWithRetry(
     options: RetryOptions = {}
 ): Promise<{ data: any; error: any }> {
     return executeWithSessionCheck(
-        () => {
+        async () => {
             let query = supabase.from(table).delete();
             query = filters(query);
-            return query;
+            return await query;
         },
         options
     );

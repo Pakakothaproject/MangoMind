@@ -99,15 +99,13 @@ const LandingPage: React.FC = () => {
                 <div className="mt-8 flex justify-center gap-4">
                     <button 
                         onClick={() => openAuthModal('signin')} 
-                        className="landing-page-button relative overflow-hidden bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-bold text-lg px-10 py-4 rounded-full shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 animate-gradient-x"
-                        style={{ backgroundSize: '200% 200%' }}
+                        className="landing-page-button relative bg-[var(--jackfruit-accent)] hover:bg-[var(--jackfruit-accent)]/90 text-[var(--jackfruit-dark)] font-bold text-lg px-10 py-4 rounded-lg shadow-[0_4px_0_0_rgba(0,0,0,0.3)] hover:shadow-[0_2px_0_0_rgba(0,0,0,0.3)] hover:translate-y-[2px] active:shadow-[0_0px_0_0_rgba(0,0,0,0.3)] active:translate-y-[4px] transition-all duration-150"
                     >
                         Login
                     </button>
                     <button 
                         onClick={() => openAuthModal('signup')} 
-                        className="landing-page-button relative overflow-hidden bg-gradient-to-r from-green-500 via-teal-500 to-blue-500 hover:from-green-600 hover:via-teal-600 hover:to-blue-600 text-white font-bold text-lg px-10 py-4 rounded-full shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300 animate-gradient-x"
-                        style={{ backgroundSize: '200% 200%' }}
+                        className="landing-page-button relative bg-amber-100 hover:bg-amber-200 text-[var(--jackfruit-dark)] font-bold text-lg px-10 py-4 rounded-lg shadow-[0_4px_0_0_rgba(0,0,0,0.3)] hover:shadow-[0_2px_0_0_rgba(0,0,0,0.3)] hover:translate-y-[2px] active:shadow-[0_0px_0_0_rgba(0,0,0,0.3)] active:translate-y-[4px] transition-all duration-150"
                     >
                         Sign Up
                     </button>

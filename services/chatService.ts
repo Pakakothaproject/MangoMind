@@ -2,6 +2,7 @@
 import { Model, ModelDefinition, ChatMode } from '../types';
 import type { Message, Role, Chat, Persona } from '../types';
 import { supabase, supabaseUrl } from './supabaseClient';
+import { connectionManager } from './connectionManager';
 import { logTokenUsage } from './tokenService';
 import { getAvailableModels } from './configService';
 import { DEFAULT_TEXT_GEN_MODEL } from '../constants/models';
@@ -20,22 +21,41 @@ export const getChatCompletion = async ({
     signal: AbortSignal;
     onChunk: (data: { text: string; isFinal: boolean, usage?: any, model?: string }) => void;
 }): Promise<void> => {
-    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
-
-    if (systemPrompt) {
-        messages.push({ role: 'system', content: systemPrompt });
-    }
+    const messages: { role: 'user' | 'assistant'; content: string }[] = [];
+    
+    // AIMLAPI doesn't support 'system' role - prepend to first user message instead
+    let systemPrefixAdded = false;
+    let lastRole: 'user' | 'assistant' | null = null;
 
     history.forEach(msg => {
         if (msg.text) {
-            messages.push({
-                role: msg.role === 'model' ? 'assistant' : 'user',
-                content: msg.text,
-            });
+            const role = msg.role === 'model' ? 'assistant' : 'user';
+            let content = msg.text;
+            
+            // Skip if same role as previous message to ensure alternation
+            if (lastRole === role) {
+                // Merge content with previous message if same role
+                if (messages.length > 0) {
+                    messages[messages.length - 1].content += `\n\n${content}`;
+                }
+                return;
+            }
+            
+            // Prepend system prompt to first user message
+            if (systemPrompt && !systemPrefixAdded && role === 'user') {
+                content = `${systemPrompt}\n\n${msg.text}`;
+                systemPrefixAdded = true;
+            }
+            
+            messages.push({ role, content });
+            lastRole = role;
         }
     });
     
     try {
+        // Ensure valid session before making API call
+        await connectionManager.ensureValidSession();
+        
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error("User not authenticated.");
 
@@ -54,8 +74,16 @@ export const getChatCompletion = async ({
         });
 
         if (!response.ok) {
-            let errorMsg = `API error: ${response.statusText}`;
-            try { const errorData = await response.json(); errorMsg = errorData.error || errorData.message || errorMsg; } catch (e) { /* ignore */ }
+            let errorMsg = `API error: ${response.status} ${response.statusText}`;
+            let errorDetails: any = {};
+            try { 
+                errorDetails = await response.json(); 
+                console.error('AIMLAPI error response:', errorDetails);
+                errorMsg = errorDetails.error || errorDetails.message || JSON.stringify(errorDetails) || errorMsg; 
+            } catch (e) { 
+                console.error('Could not parse error response:', e);
+            }
+            console.error('Full error:', errorMsg);
             throw new Error(errorMsg);
         }
 
@@ -122,6 +150,11 @@ export const getChatCompletion = async ({
 
     } catch (error) {
         console.error('AIMLAPI chat streaming error:', error);
+        console.error('Error details:', {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            error: error
+        });
         throw error;
     }
 };
@@ -165,6 +198,9 @@ export const selectBestModel = async (
     }
 
     // Fallback to existing AI router logic
+    // Ensure valid session
+    await connectionManager.ensureValidSession();
+    
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
         throw new Error("User not authenticated for model selection.");
@@ -283,6 +319,9 @@ Based on your analysis of the conversation below, respond with ONLY the ID of th
 
 export const generateTitle = async (message: string): Promise<string> => {
     try {
+        // Ensure valid session
+        await connectionManager.ensureValidSession();
+        
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
             throw new Error("User not authenticated for title generation.");

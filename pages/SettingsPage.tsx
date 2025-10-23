@@ -16,11 +16,13 @@ const SettingsSidebarLink: React.FC<{ to: string, icon: string, label: string, o
     <NavLink
         to={to}
         onClick={onClick}
-        className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-            isActive ? 'bg-[var(--nb-surface)] text-[var(--nb-primary)]' : 'text-[var(--nb-text-secondary)] hover:bg-[var(--nb-surface-alt)] hover:text-[var(--nb-text)]'
+        className={({ isActive }) => `group flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+            isActive 
+                ? 'bg-[var(--jackfruit-hover-dark)] text-[var(--jackfruit-accent)] border-l-2 border-[var(--jackfruit-accent)] scale-[1.01] shadow-md' 
+                : 'text-[var(--nb-text-secondary)] hover:bg-[var(--jackfruit-hover-dark)] hover:text-[var(--nb-text)] hover:scale-[1.02] hover:translate-x-1 border-l-2 border-transparent'
         }`}
     >
-        <span className="material-symbols-outlined">{icon}</span>
+        <span className="material-symbols-outlined text-[20px] transition-transform duration-200 group-hover:scale-110">{icon}</span>
         <span>{label}</span>
     </NavLink>
 );
@@ -127,15 +129,15 @@ const SettingsPage: React.FC = () => {
                                     <ArrowLeftIcon />
                                 </button>
                             </div>
-                            <nav className="flex-1 flex flex-col gap-2 overflow-y-auto">
+                            <nav className="flex-1 flex flex-col gap-1.5">
                                 <SettingsSidebarLink to="/settings/usage" icon="bar_chart" label="Usage" />
                                 <SettingsSidebarLink to="/settings/profile" icon="person" label="Profile" />
                                 <SettingsSidebarLink to="/settings/account" icon="shield_lock" label="Account" />
                                 <SettingsSidebarLink to="/settings/theme" icon="palette" label="Appearance" />
-                                <SettingsSidebarLink to="/settings/models" icon="model_training" label="SPDE Model Preferences" />
+                                <SettingsSidebarLink to="/settings/models" icon="model_training" label="Model Prefs" />
                                 <SettingsSidebarLink to="/settings/chat-modes" icon="chat" label="Chat Modes" />
                                 <SettingsSidebarLink to="/settings/billing" icon="credit_card" label="Billing" />
-                                <SettingsSidebarLink to="/generations" icon="photo_library" label="My Generations" />
+                                <SettingsSidebarLink to="/generations" icon="photo_library" label="Generations" />
                             </nav>
                              <div className="flex-shrink-0 pt-4 space-y-2 border-t border-[var(--nb-border)]">
                                 <button 

@@ -257,7 +257,8 @@ export const useChatMessagesStore = create<ChatMessagesState>((set, get) => {
                         });
                     } catch (error) {
                         if (error instanceof DOMException && error.name === 'AbortError') {
-                            get().actions._updateMessage(tempModelId, { text: 'Generation stopped.', isError: true, isLoading: false });
+                            // Keep the text that was generated so far, just mark as stopped
+                            get().actions._updateMessage(tempModelId, { isLoading: false });
                         } else {
                             get().actions._updateMessage(tempModelId, { text: getFriendlyErrorMessage(error, modelId), isError: true, isLoading: false });
                         }
@@ -274,7 +275,8 @@ export const useChatMessagesStore = create<ChatMessagesState>((set, get) => {
                         try {
                             const finalModelMessages = get().messages.filter(msg => tempModelMessageIds.includes(msg.id));
                             for (const msg of finalModelMessages) {
-                                if (!msg.isError) {
+                                // Save all messages, even if stopped (partial generation)
+                                if (!msg.isError && msg.text && msg.text.trim().length > 0) {
                                     const savedData = await createMessageDB(activeChat.id, msg);
                                     get().actions._updateMessage(msg.id, { id: savedData.id });
                                 }
@@ -362,11 +364,20 @@ export const useChatMessagesStore = create<ChatMessagesState>((set, get) => {
 
                     if (!isNaN(Number(messageId))) {
                         const finalMsg = get().messages.find(m => m.id === messageId);
-                        if (finalMsg) await updateMessageDB(messageId, { content: finalMsg.text });
+                        if (finalMsg && finalMsg.text && finalMsg.text.trim().length > 0) {
+                            await updateMessageDB(messageId, { content: finalMsg.text });
+                        }
                     }
                 } catch (error) {
                     if (error instanceof DOMException && error.name === 'AbortError') {
-                        get().actions._updateMessage(messageId, { text: 'Generation stopped.', isError: true, isLoading: false });
+                        // Keep the text generated so far, just stop loading and save it
+                        const currentMsg = get().messages.find(m => m.id === messageId);
+                        get().actions._updateMessage(messageId, { isLoading: false });
+                        
+                        // Save the partial generation to database
+                        if (!isNaN(Number(messageId)) && currentMsg && currentMsg.text && currentMsg.text.trim().length > 0) {
+                            await updateMessageDB(messageId, { content: currentMsg.text });
+                        }
                     } else {
                         get().actions._updateMessage(messageId, { text: getFriendlyErrorMessage(error, modelToUse), isError: true, isLoading: false });
                     }
