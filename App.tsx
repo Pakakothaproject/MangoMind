@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, NavLink, Link, Navigate, Outlet, useLocatio
 import { useAppStore } from './store/appStore';
 import { useModelStore } from './store/modelStore';
 import { supabase } from './services/supabaseClient';
+import { connectionManager } from './services/connectionManager';
 import LandingPage from './pages/LandingPage';
 import ProfileSetupPage from './pages/ProfileSetupPage';
 import SettingsPage from './pages/SettingsPage';
@@ -84,7 +85,7 @@ const Sidebar: React.FC<{ isChatPage?: boolean; isHovered?: boolean }> = ({ isCh
     if (isChatPage) {
         asideClasses += ` w-20 items-center ${isHovered ? 'translate-x-0' : '-translate-x-full'}`;
     } else {
-        asideClasses += displayExpanded ? ' w-60' : ' w-20 items-center';
+        asideClasses += displayExpanded ? ' w-48' : ' w-20 items-center';
     }
     
     return (
@@ -222,6 +223,7 @@ const App: React.FC = () => {
     // Initialize app and auth listener - SIMPLIFIED
     useEffect(() => {
         let hasInitialized = false;
+        let connectionHealthUnsubscribe: (() => void) | null = null;
         
         const initializeApp = async () => {
             if (hasInitialized) {
@@ -231,6 +233,24 @@ const App: React.FC = () => {
             
             hasInitialized = true;
             console.log('App initializing...');
+            
+            // Initialize connection manager first
+            try {
+                await connectionManager.initialize();
+                console.log('Connection manager initialized');
+                
+                // Listen for connection health changes
+                connectionHealthUnsubscribe = connectionManager.addListener((healthy) => {
+                    if (healthy) {
+                        console.log('Connection restored - refreshing user state');
+                        checkUser(true);
+                    } else {
+                        console.warn('Connection unhealthy');
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to initialize connection manager:', error);
+            }
             
             // Initialize store
             init(navigate);
@@ -265,7 +285,7 @@ const App: React.FC = () => {
                 if (session) {
                     // Check if profile exists, if not create it (OAuth fallback)
                     await ensureProfileExists(session);
-                    await checkUser();
+                    await checkUser(true); // Force refresh after sign in
                     
                     // Redirect to intended URL if stored
                     const intendedUrl = sessionStorage.getItem('intendedUrl');
@@ -280,13 +300,21 @@ const App: React.FC = () => {
                 useAppStore.setState({ session: null, profile: null, authLoading: false });
                 navigate('/');
             } else if (event === 'TOKEN_REFRESHED') {
-                console.log('Token refreshed - no action needed');
+                console.log('Token refreshed - updating session state');
+                // Update session in store to reflect new token
+                if (session) {
+                    useAppStore.setState({ session });
+                }
             }
         });
 
         return () => {
-            console.log('Cleaning up auth subscription');
+            console.log('Cleaning up app...');
             subscription.unsubscribe();
+            if (connectionHealthUnsubscribe) {
+                connectionHealthUnsubscribe();
+            }
+            connectionManager.cleanup();
         };
     }, []); // Only run once on mount
 
