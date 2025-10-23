@@ -3,8 +3,7 @@ import useLocalStorage from '../../hooks/use-local-storage';
 import { DEFAULT_TEXT_GEN_MODEL } from '../../constants/models';
 import type { Model, ModelDefinition } from '../../types';
 import { getAvailableModels } from '../../services/configService';
-import { supabase } from '../../services/supabaseClient';
-import { useNavigate } from 'react-router-dom';
+// Removed unused imports: supabase, useNavigate
 
 
 const TAG_DISPLAY_ORDER = ['Multimodal', 'Reasoning', 'Code', 'Fast', 'Instruct', 'RAG', 'Tiny'];
@@ -48,7 +47,6 @@ for (const rawTag in TAG_CONSOLIDATION_MAP) {
 
 const ModelPreferences: React.FC = () => {
     const [preferredModels, setPreferredModels] = useLocalStorage<string[]>('preferred-chat-models', [DEFAULT_TEXT_GEN_MODEL]);
-    const [debugInfo, setDebugInfo] = useState<any>(null);
     const [preferredImageModels, setPreferredImageModels] = useLocalStorage<string[]>('preferred-image-models', []);
     const [preferredVideoModels, setPreferredVideoModels] = useLocalStorage<string[]>('preferred-video-models', []);
     const [availableModels, setAvailableModels] = useState<ModelDefinition[]>([]);
@@ -57,7 +55,6 @@ const ModelPreferences: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true); // Keep loading true initially to show loading state
     const [activeTag, setActiveTag] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'chat' | 'image' | 'video'>('chat');
-    const navigate = useNavigate();
 
     useEffect(() => {
         getAvailableModels().then(models => {
@@ -140,8 +137,7 @@ const ModelPreferences: React.FC = () => {
         }
     }, [availableVideoModels, setPreferredVideoModels]);
     
-    const userAccessibleCount = useMemo(() => availableModels.filter(m => m.is_accessible).length, [availableModels]);
-    const totalActiveModels = availableModels.length;
+    // Removed unused variables: userAccessibleCount, totalActiveModels
 
     const allTags = useMemo(() => {
         // Find which of the desired tags are actually present in the available models
@@ -157,17 +153,6 @@ const ModelPreferences: React.FC = () => {
         // Return them in the desired order
         return TAG_DISPLAY_ORDER.filter(tag => presentConsolidatedTags.has(tag));
     }, [availableModels]);
-
-    const filteredModels = useMemo(() => {
-        if (!activeTag) return availableModels;
-        
-        const rawTagsToFilter = REVERSE_TAG_MAP[activeTag] || [];
-        if (rawTagsToFilter.length === 0) return availableModels;
-        
-        return availableModels.filter(model => 
-            model.tags?.some(rawTag => rawTagsToFilter.includes(rawTag.toLowerCase()))
-        );
-    }, [availableModels, activeTag]);
 
     const getCurrentModelsByCategory = useMemo(() => {
         // Determine which models and filters to use based on active tab
@@ -333,7 +318,7 @@ const ModelPreferences: React.FC = () => {
                 </div>
                 {/* Tab Navigation */}
             <div className="mb-6">
-                <div className="flex space-x-1 bg-gray-800 rounded-lg p-1">
+                <div className="flex space-x-1 bg-[var(--jackfruit-darker)] rounded-lg p-1">
                     {[
                         { id: 'chat', label: 'Chat', available: availableModels.length, selected: preferredModels.length },
                         { id: 'image', label: 'Image', available: availableImageModels.length, selected: preferredImageModels.length },
@@ -342,15 +327,15 @@ const ModelPreferences: React.FC = () => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as 'chat' | 'image' | 'video')}
-                            className={`flex-1 py-2.5 px-3 rounded-md text-sm font-medium transition-colors ${
+                            className={`flex-1 py-2 px-2 md:px-3 rounded-md text-xs md:text-sm font-medium transition-colors ${
                                 activeTab === tab.id
-                                    ? 'bg-[var(--nb-primary)] text-black'
-                                    : 'text-gray-300 hover:bg-gray-700'
+                                    ? 'bg-[var(--jackfruit-accent)] text-[var(--jackfruit-dark)]'
+                                    : 'text-[var(--jackfruit-muted)] hover:bg-[var(--jackfruit-hover-dark)]'
                             }`}
                         >
-                            <div className="flex flex-col items-center gap-1">
+                            <div className="flex flex-col items-center gap-0.5">
                                 <span>{tab.label}</span>
-                                <span className="text-xs opacity-80">{tab.available} available • {tab.selected}/10 selected</span>
+                                <span className="text-[10px] md:text-xs opacity-70">{tab.selected}/10</span>
                             </div>
                         </button>
                     ))}
@@ -362,10 +347,10 @@ const ModelPreferences: React.FC = () => {
                 <div className="flex flex-wrap gap-2">
                     <button
                         onClick={() => setActiveTag(null)}
-                        className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                        className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium transition-colors ${
                             !activeTag
-                                ? 'bg-[var(--nb-primary)] text-black'
-                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                ? 'bg-[var(--jackfruit-accent)] text-[var(--jackfruit-dark)]'
+                                : 'bg-[var(--jackfruit-darker)] text-[var(--jackfruit-muted)] hover:bg-[var(--jackfruit-hover-dark)]'
                         }`}
                     >
                         All Models
@@ -374,10 +359,10 @@ const ModelPreferences: React.FC = () => {
                         <button
                             key={tag}
                             onClick={() => setActiveTag(tag === activeTag ? null : tag)}
-                            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                            className={`px-2 md:px-3 py-1 rounded-full text-xs md:text-sm font-medium transition-colors ${
                                 activeTag === tag
-                                    ? 'bg-[var(--nb-primary)] text-black'
-                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                    ? 'bg-[var(--jackfruit-accent)] text-[var(--jackfruit-dark)]'
+                                    : 'bg-[var(--jackfruit-darker)] text-[var(--jackfruit-muted)] hover:bg-[var(--jackfruit-hover-dark)]'
                             }`}
                         >
                             {tag}
@@ -401,8 +386,8 @@ const ModelPreferences: React.FC = () => {
             ) : (
                 <div className="space-y-6">
                     {Object.entries(getCurrentModelsByCategory.modelsByCategory).map(([category, { logoUrl, models }]) => (
-                        <div key={category} className="bg-gray-800 rounded-lg p-4">
-                            <div className="flex items-center gap-3 mb-4">
+                        <div key={category} className="bg-[var(--jackfruit-darker)] rounded-lg p-3 md:p-4">
+                            <div className="flex items-center gap-2 md:gap-3 mb-3">
                                 {logoUrl && (
                                     <img 
                                         src={logoUrl} 
@@ -426,8 +411,8 @@ const ModelPreferences: React.FC = () => {
                                             key={model.id}
                                             className={`p-2 md:p-3 rounded-lg border-2 transition-all ${
                                                 isSelected
-                                                    ? 'border-[var(--nb-primary)] bg-color-mix(in srgb, var(--nb-primary) 10%, transparent)'
-                                                    : 'border-gray-600 bg-gray-700 hover:border-gray-500'
+                                                    ? 'border-[var(--jackfruit-accent)] bg-[var(--jackfruit-accent)]/10'
+                                                    : 'border-[var(--jackfruit-border)] bg-[var(--jackfruit-hover-dark)] hover:border-[var(--jackfruit-muted)]'
                                             } ${
                                                 !isAccessible ? 'opacity-50' : ''
                                             }`}

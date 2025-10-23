@@ -20,7 +20,7 @@ const EmailConfirmationPanel: React.FC<EmailConfirmationPanelProps> = ({ onClose
             <div className="neo-card p-8 w-full max-w-md space-y-6 m-4 relative animate-fade-in z-[10000]">
                 {/* Email Icon */}
                 <div className="flex justify-center">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--nb-primary)] to-purple-500 flex items-center justify-center shadow-lg">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--jackfruit-accent)] to-[var(--jackfruit-accent)]/70 flex items-center justify-center shadow-lg">
                         <svg 
                             className="w-10 h-10 text-white" 
                             fill="none" 
@@ -41,7 +41,7 @@ const EmailConfirmationPanel: React.FC<EmailConfirmationPanelProps> = ({ onClose
                 <div className="text-center space-y-2">
                     <h2 
                         id="confirmation-panel-title" 
-                        className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[var(--nb-primary)] to-purple-500 bg-clip-text text-transparent"
+                        className="text-2xl md:text-3xl font-bold text-[var(--jackfruit-accent)]"
                     >
                         Check Your Email
                     </h2>

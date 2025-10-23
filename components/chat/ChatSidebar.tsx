@@ -58,59 +58,60 @@ const ChatListItem: React.FC<{
     };
 
     return (
-        <div
-            {...hoverSoundProps}
-            className={`flex items-center gap-2 pr-1 rounded-lg cursor-pointer relative transition-all duration-200 transform hover:scale-[1.02] hover:shadow-md ${isActive ? 'bg-[var(--jackfruit-hover-dark)] border-l-2 border-[var(--jackfruit-accent)] scale-[1.01]' : 'hover:bg-[var(--jackfruit-hover-dark)] border-l-2 border-transparent'}`}
-            style={{ paddingLeft: isActive ? 'calc(0.5rem - 2px)' : '0.5rem' }}
-            onClick={() => !isEditing && onSelect()}
-            draggable="true"
-            onDragStart={(e) => {
-                e.dataTransfer.setData('chatId', chat.id);
-                e.dataTransfer.effectAllowed = 'move';
-            }}
-        >
-            <span className="material-symbols-outlined text-[var(--jackfruit-muted)] cursor-grab touch-none" style={{fontSize: '20px'}}>drag_indicator</span>
-            <div className="flex-1 truncate py-2">
-                {isEditing ? (
-                    <input
-                        ref={inputRef}
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        onBlur={handleRename}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleRename();
-                            if (e.key === 'Escape') {
-                                setTitle(chat.title);
-                                setIsEditing(false);
-                            }
-                        }}
-                        className="w-full bg-transparent outline-none text-[var(--jackfruit-light)]"
-                    />
-                ) : (
-                    <span className={`font-medium ${isActive ? 'text-white' : 'text-[var(--jackfruit-light)]'}`}>{chat.title}</span>
-                )}
-            </div>
-            {!isEditing && (
-                 <div className="flex-shrink-0 relative" ref={menuRef}>
-                    <button onClick={handleMenuClick} className="p-1 text-[var(--jackfruit-muted)] hover:text-white" title="More options">
+        <div className="relative">
+            <div
+                {...(!isMenuOpen ? hoverSoundProps : {})}
+                className={`flex items-center gap-2 pr-1 rounded-lg cursor-pointer transition-all duration-200 ${!isMenuOpen ? 'transform hover:scale-[1.02] hover:shadow-md' : ''} ${isActive ? 'bg-[var(--jackfruit-hover-dark)] border-l-2 border-[var(--jackfruit-accent)] scale-[1.01]' : 'hover:bg-[var(--jackfruit-hover-dark)] border-l-2 border-transparent'}`}
+                style={{ paddingLeft: isActive ? 'calc(0.5rem - 2px)' : '0.5rem' }}
+                onClick={() => !isEditing && !isMenuOpen && onSelect()}
+                draggable="true"
+                onDragStart={(e) => {
+                    e.dataTransfer.setData('chatId', chat.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                }}
+            >
+                <span className="material-symbols-outlined text-[var(--jackfruit-muted)] cursor-grab touch-none" style={{fontSize: '20px'}}>drag_indicator</span>
+                <div className="flex-1 truncate py-2">
+                    {isEditing ? (
+                        <input
+                            ref={inputRef}
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            onBlur={handleRename}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRename();
+                                if (e.key === 'Escape') {
+                                    setTitle(chat.title);
+                                    setIsEditing(false);
+                                }
+                            }}
+                            className="w-full bg-transparent outline-none text-[var(--jackfruit-light)]"
+                        />
+                    ) : (
+                        <span className={`font-medium ${isActive ? 'text-white' : 'text-[var(--jackfruit-light)]'}`}>{chat.title}</span>
+                    )}
+                </div>
+                {!isEditing && (
+                    <button onClick={handleMenuClick} className="flex-shrink-0 p-1 text-[var(--jackfruit-muted)] hover:text-white transition-colors z-10" title="More options">
                         <MoreHorizontalIcon />
                     </button>
-                    {isMenuOpen && (
-                        <div className="dropdown-menu-content absolute top-full right-0 mt-1 chat-list-item-menu">
-                            <button onClick={(e) => { e.stopPropagation(); togglePinChat(chat.id); setIsMenuOpen(false);}} className="dropdown-menu-item">
-                                <span className="material-symbols-outlined !text-base" style={{ transform: chat.pinned ? 'none' : 'rotate(45deg)'}}>push_pin</span>
-                                {chat.pinned ? 'Unpin' : 'Pin'}
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); setIsMenuOpen(false);}} className="dropdown-menu-item">
-                                <EditIcon className="w-4 h-4"/>
-                                Rename
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); setIsMenuOpen(false);}} className="dropdown-menu-item danger">
-                                <Trash2Icon className="w-4 h-4"/>
-                                Delete
-                            </button>
-                        </div>
-                    )}
+                )}
+            </div>
+            {isMenuOpen && (
+                <div ref={menuRef} className="absolute top-full right-0 mt-1 z-[100] bg-[var(--jackfruit-darker)] border-2 border-[var(--jackfruit-accent)]/30 rounded-lg shadow-xl shadow-black/50 min-w-[140px] py-1 animate-fade-in">
+                    <button onClick={(e) => { e.stopPropagation(); togglePinChat(chat.id); setIsMenuOpen(false);}} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--jackfruit-light)] hover:bg-[var(--jackfruit-accent)]/20 hover:text-[var(--jackfruit-accent)] transition-colors">
+                        <span className="material-symbols-outlined !text-base" style={{ transform: chat.pinned ? 'none' : 'rotate(45deg)'}}>push_pin</span>
+                        {chat.pinned ? 'Unpin' : 'Pin'}
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); setIsMenuOpen(false);}} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--jackfruit-light)] hover:bg-[var(--jackfruit-accent)]/20 hover:text-[var(--jackfruit-accent)] transition-colors">
+                        <EditIcon className="w-4 h-4"/>
+                        Rename
+                    </button>
+                    <div className="h-px bg-[var(--jackfruit-border)] my-1"></div>
+                    <button onClick={(e) => { e.stopPropagation(); deleteChat(chat.id); setIsMenuOpen(false);}} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors">
+                        <Trash2Icon className="w-4 h-4"/>
+                        Delete
+                    </button>
                 </div>
             )}
         </div>
@@ -161,6 +162,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ onChatSelect, onNewCha
     // FIX: `showBottomNavTemporarily` is nested under the 'actions' property in the store.
     const appActions = useAppStore(state => state.actions);
     const { showBottomNavTemporarily, navigateToPersonas } = appActions;
+    const hoverSoundProps = useHoverSoundProps();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -207,7 +209,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ onChatSelect, onNewCha
                 <img alt="MangoMind logo" className="w-10 h-10 rounded-lg" src="https://res.cloudinary.com/dy80ftu9k/image/upload/v1760277916/SADW_eed6gu.png" />
                 <h1 className="text-2xl font-bold text-[var(--jackfruit-light)]">MangoMind</h1>
             </div>
-            <button onClick={onNewChat} className="w-full text-left bg-[var(--jackfruit-accent)] text-[var(--jackfruit-dark)] font-semibold py-2 px-4 rounded-lg flex items-center justify-between hover:opacity-90 transition-opacity mb-4">
+            <button 
+                {...hoverSoundProps}
+                onClick={() => onNewChat()} 
+                className="w-full text-left bg-[var(--jackfruit-accent)] text-[var(--jackfruit-dark)] font-semibold py-2 px-4 rounded-lg flex items-center justify-between mb-4 transition-all duration-150 shadow-[0_4px_0_0_rgba(0,0,0,0.3)] hover:shadow-[0_2px_0_0_rgba(0,0,0,0.3)] hover:translate-y-[2px] active:shadow-[0_0px_0_0_rgba(0,0,0,0.3)] active:translate-y-[4px]"
+            >
                 <span>New Chat</span>
                 <span className="material-symbols-outlined">add</span>
             </button>

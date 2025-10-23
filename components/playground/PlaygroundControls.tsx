@@ -11,28 +11,28 @@ const GenerateModeControls: React.FC = () => {
     const { prompt, negativePrompt, setPrompt, setNegativePrompt, generateImage, isLoading, error } = usePlaygroundStore();
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-3">
             <div className="step-card">
                 <h3 className="step-title"><span className="step-number">1</span> Describe Your Image</h3>
                 <div>
-                    <label htmlFor="playground-prompt" className="font-semibold text-sm opacity-90">Prompt</label>
+                    <label htmlFor="playground-prompt" className="font-semibold text-xs opacity-90">Prompt</label>
                     <textarea
                         id="playground-prompt"
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
-                        className="neo-textarea mt-1"
-                        rows={4}
+                        className="neo-textarea mt-1 text-sm"
+                        rows={3}
                         placeholder="A photorealistic image of..."
                         disabled={isLoading}
                     />
                 </div>
-                <div className="mt-4">
-                    <label htmlFor="playground-negative" className="font-semibold text-sm opacity-90">Negative Prompt (Optional)</label>
+                <div className="mt-3">
+                    <label htmlFor="playground-negative" className="font-semibold text-xs opacity-90">Negative Prompt (Optional)</label>
                     <textarea
                         id="playground-negative"
                         value={negativePrompt}
                         onChange={(e) => setNegativePrompt(e.target.value)}
-                        className="neo-textarea mt-1"
+                        className="neo-textarea mt-1 text-sm"
                         rows={2}
                         placeholder="blurry, low quality, text..."
                         disabled={isLoading}
@@ -45,12 +45,12 @@ const GenerateModeControls: React.FC = () => {
                 <button
                     onClick={generateImage}
                     disabled={isLoading || !prompt.trim()}
-                    className="w-full neo-button neo-button-primary"
+                    className="w-full neo-button neo-button-primary text-sm"
                 >
                     <SparklesIcon /> {isLoading ? 'Generating...' : 'Generate Image'}
                 </button>
                 {error && (
-                    <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-sm text-red-400">
+                    <div className="mt-2 p-1.5 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400">
                         {error}
                     </div>
                 )}
@@ -83,7 +83,7 @@ const PlaygroundControls: React.FC = () => {
     };
 
     return (
-        <div className="w-[360px] h-full bg-[#212121] p-6 overflow-y-auto border-r border-[var(--nb-border)] flex-shrink-0">
+        <div className="w-[320px] h-full bg-[#212121] p-3 md:p-4 overflow-y-auto border-r border-[var(--nb-border)] flex-shrink-0">
             {renderControls()}
         </div>
     );

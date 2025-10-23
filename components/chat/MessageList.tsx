@@ -11,6 +11,7 @@ interface MessageListProps {
     chatId: string;
     onDeleteMessage: (messageId: string) => void;
     onRegenerateResponse: (messageId: string) => void;
+    onSendMessage?: (message: string) => void;
 }
 
 interface MessageTurn {
@@ -61,7 +62,7 @@ const MessageMenu: React.FC<{ children: React.ReactNode, buttonClassName: string
             </button>
             {isOpen && (
                 <div 
-                    className="dropdown-menu-content absolute top-full right-0 mt-1 z-10"
+                    className="dropdown-menu-content absolute top-full right-0 mt-1 z-50"
                 >
                     {childrenWithCloseOnClick}
                 </div>
@@ -70,10 +71,11 @@ const MessageMenu: React.FC<{ children: React.ReactNode, buttonClassName: string
     );
 };
 
-export const MessageList: React.FC<MessageListProps> = React.memo(({ chatId, onDeleteMessage, onRegenerateResponse }) => {
+export const MessageList: React.FC<MessageListProps> = React.memo(({ chatId, onDeleteMessage, onRegenerateResponse, onSendMessage }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const messages = useChatMessagesStore(s => s.messages);
     const isLoading = useChatMessagesStore(s => s.isLoading);
+    const isStreaming = useChatMessagesStore(s => s.isStreaming);
     
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
@@ -101,11 +103,38 @@ export const MessageList: React.FC<MessageListProps> = React.memo(({ chatId, onD
     //     return activeChatId ? chats.find(c => c.id === activeChatId) : undefined;
     // });
 
+    // Auto-scroll on new messages or when content changes
     useEffect(() => {
-        if (scrollRef.current && messages.length > 0) {
+        if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
+    // Continuous auto-scroll during streaming
+    useEffect(() => {
+        if (!isStreaming) return;
+
+        const scrollToBottom = () => {
+            if (scrollRef.current) {
+                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            }
+        };
+
+        // Continuous scrolling during streaming with RAF for smoothness
+        let rafId: number;
+        const scroll = () => {
+            scrollToBottom();
+            if (isStreaming) {
+                rafId = requestAnimationFrame(scroll);
+            }
+        };
+        
+        rafId = requestAnimationFrame(scroll);
+
+        return () => {
+            if (rafId) cancelAnimationFrame(rafId);
+        };
+    }, [isStreaming]);
 
     if (isLoading) {
         return (
@@ -132,9 +161,75 @@ export const MessageList: React.FC<MessageListProps> = React.memo(({ chatId, onD
         return acc;
     }, []);
 
+    const suggestionPrompts = [
+        {
+            icon: 'code',
+            title: 'Code Assistant',
+            prompt: 'Help me write clean, efficient code. I need assistance with programming tasks, debugging, or code reviews.',
+            color: 'border-[var(--jackfruit-accent)]/30'
+        },
+        {
+            icon: 'campaign',
+            title: 'Marketing Expert',
+            prompt: 'Create compelling marketing content. Help me with copywriting, social media posts, or marketing strategies.',
+            color: 'border-[var(--jackfruit-accent)]/30'
+        },
+        {
+            icon: 'science',
+            title: 'Research Assistant',
+            prompt: 'Help me research and analyze information. I need detailed explanations, summaries, or academic assistance.',
+            color: 'border-[var(--jackfruit-accent)]/30'
+        },
+        {
+            icon: 'search',
+            title: 'Internet Search',
+            prompt: 'Search the web for current information. I need up-to-date facts, news, or real-time data.',
+            color: 'border-[var(--jackfruit-accent)]/30'
+        },
+        {
+            icon: 'edit_note',
+            title: 'Content Writer',
+            prompt: 'Write engaging content for me. Help with articles, blog posts, stories, or creative writing.',
+            color: 'border-[var(--jackfruit-accent)]/30'
+        },
+        {
+            icon: 'psychology',
+            title: 'Problem Solver',
+            prompt: 'Help me solve complex problems. I need logical thinking, brainstorming, or strategic planning assistance.',
+            color: 'border-[var(--jackfruit-accent)]/30'
+        }
+    ];
+
     return (
-        <div ref={scrollRef} className="flex-1 overflow-y-auto">
-            <div className="flex flex-col items-center">
+        <div ref={scrollRef} className="h-full w-full overflow-y-auto">
+            <div className="flex flex-col items-center min-h-full">
+                {messages.length === 0 && onSendMessage && (
+                    <div className="flex-1 flex items-center justify-center w-full px-4 py-8">
+                        <div className="max-w-4xl w-full">
+                            <div className="text-center mb-8">
+                                <h2 className="text-2xl md:text-3xl font-bold text-[var(--jackfruit-light)] mb-2">How can I help you today?</h2>
+                                <p className="text-sm md:text-base text-[var(--jackfruit-muted)]">Choose a scenario below or type your own message</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                                {suggestionPrompts.map((suggestion, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => onSendMessage(suggestion.prompt)}
+                                        className={`group relative p-4 md:p-5 rounded-xl border-2 ${suggestion.color} bg-transparent hover:bg-[var(--jackfruit-accent)]/5 hover:border-[var(--jackfruit-accent)]/60 active:bg-[var(--jackfruit-accent)]/10 transition-all duration-300 text-left hover:shadow-lg hover:shadow-[var(--jackfruit-accent)]/20`}
+                                    >
+                                        <div className="flex items-center gap-3 mb-2 transition-transform duration-300 group-hover:translate-x-1">
+                                            <span className="material-symbols-outlined text-2xl md:text-3xl text-[var(--jackfruit-accent)] transition-transform duration-300 group-hover:scale-110">{suggestion.icon}</span>
+                                            <h3 className="font-bold text-sm md:text-base text-[var(--jackfruit-light)]">{suggestion.title}</h3>
+                                        </div>
+                                        <p className="text-xs md:text-sm text-[var(--jackfruit-muted)] leading-relaxed">
+                                            {suggestion.prompt}
+                                        </p>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {messageTurns.map((turn) => (
                     <React.Fragment key={turn.userMessage?.id || turn.modelMessages[0].id}>
                         {turn.userMessage && (
@@ -170,7 +265,7 @@ export const MessageList: React.FC<MessageListProps> = React.memo(({ chatId, onD
                                         // const colorClass = modelIndex > -1 ? `model-color-${modelIndex + 1}` : 'model-color-inactive';
 
                                         return (
-                                            <div key={modelMsg.id} className={`chat-message-tile-container group ${colorClassName}`}>
+                                            <div key={modelMsg.id} id={`message-${modelMsg.id}`} className={`chat-message-tile-container group ${colorClassName}`}>
                                                 <div className="chat-message-tile">
                                                     <ChatMessage message={modelMsg} isTile={true} />
                                                     <MessageMenu

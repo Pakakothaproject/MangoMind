@@ -124,24 +124,13 @@ export const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({ isOpen
     }, [allModelsFromStore, allModels, preferredModels, currentModels]);
 
     useEffect(() => {
-        // Fetch all models when modal opens to ensure we have access to disabled/inactive models
-        if (isOpen && allModels.length === 0) {
+        if (isOpen) {
+            setSelectedModels(currentModels);
+            // Force fetch all models when modal opens
+            console.log('ModelSelectionModal: Fetching all models...');
             fetchAllModels();
         }
-        
-        // Get the current model IDs from currentModels
-        const currentModelIds = currentModels.filter(m => m !== 'auto').map(m => typeof m === 'string' ? m : m.id);
-
-        // Use allModels if available, otherwise fall back to allModelsFromStore
-        const modelsToSearch = allModels.length > 0 ? allModels : allModelsFromStore;
-
-        // Find models that exist in the store
-        const validInitialSelection = currentModelIds
-            .map(id => modelsToSearch.find(m => m.id === id))
-            .filter(Boolean) as ModelDefinition[];
-
-        setSelectedModels(validInitialSelection.length > 0 ? validInitialSelection : ['auto']);
-    }, [currentModels, allModelsFromStore, allModels, isOpen, fetchAllModels]);
+    }, [isOpen, currentModels, fetchAllModels]);
     
     const allTags = useMemo(() => {
         const presentConsolidatedTags = new Set<string>();
@@ -206,8 +195,8 @@ export const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({ isOpen
 
     return (
         <div role="dialog" aria-modal="true" aria-labelledby="model-selection-title" className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
-            <div className="bg-[var(--jackfruit-dark)] text-white rounded-lg shadow-xl w-full max-w-lg animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                <header className="p-4 border-b border-[var(--jackfruit-darker)] flex justify-between items-center">
+            <div className="bg-gray-900/70 backdrop-blur-xl border border-white/10 text-white rounded-xl shadow-2xl w-full max-w-lg animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                <header className="p-4 border-b border-white/10 bg-gray-900/20 flex justify-between items-center">
                     <div>
                         <h2 id="model-selection-title" className="text-lg font-bold">Select Models</h2>
                         <p className="text-sm text-[var(--jackfruit-muted)]">Select up to 3 models or choose Auto-Select.</p>
@@ -217,7 +206,7 @@ export const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({ isOpen
                     </button>
                 </header>
 
-                <div className="p-4 max-h-[70vh] overflow-y-auto">
+                <div className="p-4 max-h-[70vh] overflow-y-auto bg-transparent">
                     <div className="space-y-4">
                         <button
                             onClick={() => setSelectedModels(['auto'])}
@@ -292,7 +281,7 @@ export const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({ isOpen
                                                         {model.logo_url && <img src={model.logo_url} alt={`${model.category} logo`} className="w-4 h-4 object-contain rounded-sm" />}
                                                         <span className="font-medium">{model.name}</span>
                                                         {model.tags?.map(tag => (
-                                                            <span key={tag} className={`model-tag tag-${tag.toLowerCase().replace(/\./g, '-').replace(/ /g, '-')}`}>{tag}</span>
+                                                            <span key={tag} className={`glass-pill-tag tag-${tag.toLowerCase().replace(/\./g, '-').replace(/ /g, '-')}`}>{tag}</span>
                                                         ))}
                                                     </div>
                                                     {isSelected && <CheckIcon className="text-[var(--jackfruit-accent)] flex-shrink-0" />}
@@ -306,7 +295,7 @@ export const ModelSelectionModal: React.FC<ModelSelectionModalProps> = ({ isOpen
                          {availableModels.length === 0 && <p className="text-sm text-center text-[var(--jackfruit-muted)]">No preferred models available. Please <button onClick={() => { onClose(); toggleModelGallery(); }} className="text-[var(--jackfruit-accent)] font-semibold hover:underline">manage your preferences</button>.</p>}
                     </div>
                 </div>
-                <footer className="p-4 border-t border-[var(--jackfruit-darker)] flex justify-between items-center">
+                <footer className="p-4 border-t border-white/10 bg-gray-900/20 flex justify-between items-center">
                      <p className="text-xs text-[var(--jackfruit-muted)]">Or, <button onClick={() => { onClose(); toggleModelGallery(); }} className="text-[var(--jackfruit-accent)] font-semibold hover:underline">manage model gallery</button>.</p>
                     <div className="flex gap-3">
                         <button onClick={onClose} className="px-4 py-2 rounded-md bg-[var(--jackfruit-hover-dark)] hover:opacity-80">Cancel</button>

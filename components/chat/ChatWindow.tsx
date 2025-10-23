@@ -6,6 +6,7 @@ import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { ModelSelectionModal } from './ModelSelectionModal';
 import { SystemPromptModal } from './SystemPromptModal';
+import { ModelNavigationDots } from './ModelNavigationDots';
 
 interface ChatWindowProps {
     chat: Omit<Chat, 'messages'>;
@@ -26,6 +27,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(({
         deleteMessage,
         regenerateResponse 
     } = useChatMessagesStore(s => s.actions);
+    
+    const messages = useChatMessagesStore(s => s.messages);
 
     const { 
         updateChatModels, 
@@ -36,7 +39,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(({
     const [isSystemPromptModalOpen, setIsSystemPromptModalOpen] = useState(false);
 
     return (
-        <div className="flex flex-col h-full w-full bg-[var(--jackfruit-background)] text-[var(--jackfruit-light)] chat-window-container overflow-hidden">
+        <div className="flex flex-col h-full w-full bg-[var(--jackfruit-background)] text-[var(--jackfruit-light)] chat-window-container">
             <ChatHeader
                 title={chat.title}
                 models={chat.models}
@@ -45,19 +48,30 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(({
                 onSystemPromptClick={() => setIsSystemPromptModalOpen(true)}
                 onDeleteChat={onDeleteChat}
             />
-            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto">
                 <MessageList 
                     chatId={chat.id}
                     onDeleteMessage={deleteMessage}
                     onRegenerateResponse={regenerateResponse}
+                    onSendMessage={(text) => sendMessage(text, [])}
                 />
             </div>
-            <div className="flex-shrink-0 px-2 md:px-4 pb-2 md:pb-4 chat-input-area safe-area-bottom">
-                <ChatInput
-                    onSendMessage={sendMessage}
-                    isStreaming={isStreaming}
-                    onStopStream={stopStream}
-                />
+            <div className="flex-shrink-0 chat-input-area safe-area-bottom relative">
+                <div className="px-2 md:px-4 pb-1 relative">
+                    {/* Bookmarks positioned absolutely above the input */}
+                    <div className="absolute bottom-full left-0 flex items-center gap-1 px-2 md:px-4 ml-8 mb-[-2px]">
+                        <ModelNavigationDots 
+                            messages={messages}
+                            activeModels={chat.models}
+                            isStreaming={isStreaming}
+                        />
+                    </div>
+                    <ChatInput
+                        onSendMessage={sendMessage}
+                        isStreaming={isStreaming}
+                        onStopStream={stopStream}
+                    />
+                </div>
             </div>
             <ModelSelectionModal
                 isOpen={isModelModalOpen}

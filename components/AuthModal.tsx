@@ -95,7 +95,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose, onSignupSuc
                 <div className="neo-card p-6 md:p-8 w-full max-w-md space-y-5 m-4 relative animate-fade-in">
                     <button onClick={onClose} className="absolute top-4 right-4 neo-button neo-icon-button neo-button-secondary hover:rotate-90 transition-transform duration-200"><XIcon /></button>
                     <div className="text-center space-y-2">
-                        <h2 id="auth-modal-title" className="text-3xl font-bold bg-gradient-to-r from-[var(--nb-primary)] to-purple-500 bg-clip-text text-transparent">
+                        <h2 id="auth-modal-title" className="text-3xl font-bold text-[var(--jackfruit-accent)]">
                             {mode === 'signin' ? 'Welcome Back' : 'Create an Account'}
                         </h2>
                         <p className="text-sm text-[var(--nb-text-secondary)]">
@@ -139,7 +139,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose, onSignupSuc
                         type="button"
                         onClick={handleGoogleSignIn}
                         disabled={loading}
-                        className="group relative w-full overflow-hidden bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-2xl hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg animate-gradient-x"
+                        className="group relative w-full overflow-hidden bg-gradient-to-r from-[var(--jackfruit-accent)] to-[var(--jackfruit-accent)]/80 hover:from-[var(--jackfruit-accent)]/90 hover:to-[var(--jackfruit-accent)]/70 text-[var(--jackfruit-dark)] font-semibold py-4 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-2xl hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg"
                         style={{ backgroundSize: '200% 200%' }}
                     >
                         {loading ? (

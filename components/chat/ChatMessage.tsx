@@ -1,9 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { marked } from 'marked';
-import { Model } from '../../types';
 import type { Message } from '../../types';
-import { GeminiIcon, BotIcon, AlertTriangleIcon } from '../Icons';
-import { Avatar, AvatarFallback } from '../ui/avatar';
+import { AlertTriangleIcon } from '../Icons';
 import { useModelStore } from '../../store/modelStore';
 import { CodeBlock } from './CodeBlock';
 
@@ -56,29 +54,6 @@ interface ChatMessageProps {
     isTile?: boolean;
 }
 
-const BotAvatar: React.FC<{ modelId?: Model | string }> = ({ modelId }) => {
-    if (modelId === 'auto') {
-        return (
-            <Avatar>
-                <AvatarFallback className="bg-[var(--jackfruit-dark)]">
-                    <span className="material-symbols-outlined text-[var(--jackfruit-accent)]">auto_awesome</span>
-                </AvatarFallback>
-            </Avatar>
-        );
-    }
-    const isGemini = false; // AIMLAPI models are not Gemini
-
-    return (
-    <Avatar>
-        <AvatarFallback className="bg-[var(--jackfruit-dark)]">
-            {isGemini ? <GeminiIcon className="w-6 h-6 text-[#4285F4]"/> : <BotIcon className="w-5 h-5"/>}
-        </AvatarFallback>
-    </Avatar>
-    );
-};
-
-
-
 export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isTile = false }) => {
     const { models: allModels } = useModelStore();
 
@@ -118,20 +93,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isTile = fals
 
     if (message.isLoading && !message.text) {
         return (
-            <div className={`flex items-start gap-4 p-3 w-full`}>
-                <BotAvatar modelId={message.sourceModel} />
+            <div className={`flex items-start p-3 w-full`}>
                 <ThinkingIndicator modelName={modelInfo?.name || message.sourceModel} />
             </div>
         );
     }
 
     return (
-        <div className={`flex items-start p-3 ${isUser ? 'justify-end' : 'gap-4'}`}>
-            {!isUser && (
-                <div className="flex-shrink-0">
-                    <BotAvatar modelId={message.sourceModel} />
-                </div>
-            )}
+        <div className={`flex items-start p-3 ${isUser ? 'justify-end' : ''}`}>
             <div className={`flex flex-col gap-2 overflow-hidden ${isUser ? 'items-end' : ''} ${!isUser ? 'glassmorphic-message' : ''}`}>
                 {isUser && message.sentWithMode && (
                     <div className={`chat-action-indicator ${message.sentWithMode}`}>
