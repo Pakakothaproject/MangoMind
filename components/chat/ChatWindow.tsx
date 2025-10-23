@@ -36,7 +36,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(({
     const [isSystemPromptModalOpen, setIsSystemPromptModalOpen] = useState(false);
 
     return (
-        <div className="flex flex-col h-full w-full bg-[var(--jackfruit-background)] text-[var(--jackfruit-light)] chat-window-container">
+        <div className="flex flex-col h-full w-full bg-[var(--jackfruit-background)] text-[var(--jackfruit-light)] chat-window-container overflow-hidden">
             <ChatHeader
                 title={chat.title}
                 models={chat.models}
@@ -45,12 +45,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = React.memo(({
                 onSystemPromptClick={() => setIsSystemPromptModalOpen(true)}
                 onDeleteChat={onDeleteChat}
             />
-            <MessageList 
-                chatId={chat.id}
-                onDeleteMessage={deleteMessage}
-                onRegenerateResponse={regenerateResponse}
-            />
-            <div className="px-4 pb-4 chat-input-area">
+            <div className="flex-1 min-h-0 overflow-hidden">
+                <MessageList 
+                    chatId={chat.id}
+                    onDeleteMessage={deleteMessage}
+                    onRegenerateResponse={regenerateResponse}
+                />
+            </div>
+            <div className="flex-shrink-0 px-2 md:px-4 pb-2 md:pb-4 chat-input-area safe-area-bottom">
                 <ChatInput
                     onSendMessage={sendMessage}
                     isStreaming={isStreaming}

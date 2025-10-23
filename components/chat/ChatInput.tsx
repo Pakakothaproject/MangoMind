@@ -81,31 +81,33 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(({ onSendMessage, 
     const canSend = !isStreaming && (text.trim().length > 0 || images.length > 0);
 
     return (
-        <div className="chat-input-container">
-            <div className="chat-input-top-area">
-                <div className="chat-input-pills-container">
-                    {images.map((image, index) => (
-                        <div key={index} className="chat-action-indicator attachment">
-                            <img
-                                src={`data:${image.type};base64,${image.base64}`}
-                                alt={`attachment preview ${index + 1}`}
-                                className="chat-attachment-pill-preview"
-                            />
-                            <span>Attachment</span>
-                            <button onClick={() => removeImage(index)}><XIcon /></button>
-                        </div>
-                    ))}
-                    {chatMode !== 'normal' && (
-                        <div className={`chat-action-indicator ${chatMode}`}>
-                            <span className="material-symbols-outlined !text-base">{chatMode === 'search' ? 'search' : 'psychology'}</span>
-                            <span>{chatMode} mode</span>
-                            <button onClick={handleClearMode}><XIcon /></button>
-                        </div>
-                    )}
+        <div className="chat-input-container w-full max-w-full">
+            {(images.length > 0 || chatMode !== 'normal') && (
+                <div className="chat-input-top-area mb-2">
+                    <div className="chat-input-pills-container flex flex-wrap gap-2">
+                        {images.map((image, index) => (
+                            <div key={index} className="chat-action-indicator attachment flex items-center gap-2 px-2 py-1 rounded-lg bg-[var(--jackfruit-surface)] text-xs md:text-sm">
+                                <img
+                                    src={`data:${image.type};base64,${image.base64}`}
+                                    alt={`attachment preview ${index + 1}`}
+                                    className="chat-attachment-pill-preview w-6 h-6 md:w-8 md:h-8 rounded object-cover"
+                                />
+                                <span className="hidden sm:inline">Attachment</span>
+                                <button onClick={() => removeImage(index)} className="hover:opacity-70"><XIcon /></button>
+                            </div>
+                        ))}
+                        {chatMode !== 'normal' && (
+                            <div className={`chat-action-indicator ${chatMode} flex items-center gap-2 px-2 py-1 rounded-lg text-xs md:text-sm`}>
+                                <span className="material-symbols-outlined !text-base">{chatMode === 'search' ? 'search' : 'psychology'}</span>
+                                <span className="capitalize">{chatMode} mode</span>
+                                <button onClick={handleClearMode} className="hover:opacity-70"><XIcon /></button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
             
-            <div className="chat-input-row">
+            <div className="chat-input-row flex items-end gap-1 md:gap-2">
                 <div className="relative" ref={actionMenuRef}>
                     {isActionMenuOpen && (
                         <div className="action-menu">
@@ -137,7 +139,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(({ onSendMessage, 
                     className="hidden"
                 />
 
-                <div className="chat-input-textarea-wrapper">
+                <div className="chat-input-textarea-wrapper flex-1 min-w-0">
                     <textarea
                         value={text}
                         onChange={(e) => setText(e.target.value)}
@@ -148,7 +150,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(({ onSendMessage, 
                             }
                         }}
                         placeholder="Start a new message..."
-                        className="chat-input-textarea"
+                        className="chat-input-textarea w-full resize-none text-sm md:text-base"
                         rows={1}
                         disabled={isStreaming}
                     />
@@ -160,7 +162,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(({ onSendMessage, 
                 {isStreaming ? (
                     <button
                         onClick={onStopStream}
-                        className="chat-stop-button"
+                        className="chat-stop-button flex-shrink-0 w-9 h-9 md:w-10 md:h-10 flex items-center justify-center"
                         aria-label="Stop Generation"
                     >
                         <StopIcon />
@@ -169,7 +171,7 @@ export const ChatInput: React.FC<ChatInputProps> = React.memo(({ onSendMessage, 
                     <button
                         onClick={handleSendMessage}
                         disabled={!canSend}
-                        className="chat-send-button"
+                        className="chat-send-button flex-shrink-0 w-9 h-9 md:w-10 md:h-10 flex items-center justify-center"
                         aria-label="Send Message"
                     >
                          <span className={`chat-send-button-icon ${canSend ? 'translate-x-0' : 'translate-x-full'}`}>
